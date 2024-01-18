@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="src" path="src"/>
+	<classpathentry excluding="src/" kind="src" path=""/>
+	<classpathentry kind="lib" path="C:/Program Files (x86)/SAP BusinessObjects/SAP BusinessObjects Enterprise XI 4.0/java/lib/bcm.jar"/>
+	<classpathentry kind="lib" path="C:/Program Files (x86)/SAP BusinessObjects/SAP BusinessObjects Enterprise XI 4.0/java/lib/biarengine.jar"/>
+	<classpathentry kind="lib" path="C:/Program Files (x86)/SAP BusinessObjects/SAP BusinessObjects Enterprise XI 4.0/java/lib/ceaspect.jar"/>
+	<classpathentry kind="lib" path="C:/Program Files (x86)/SAP BusinessObjects/SAP BusinessObjects Enterprise XI 4.0/java/lib/cecore.jar"/>
+	<classpathentry kind="lib" path="C:/Program Files (x86)/SAP BusinessObjects/SAP BusinessObjects Enterprise XI 4.0/java/lib/celib.jar"/>
+	<classpathentry kind="lib" path="C:/Program Files (x86)/SAP BusinessObjects/SAP BusinessObjects Enterprise XI 4.0/java/lib/ceplugins_core.jar"/>
+	<classpathentry kind="lib" path="C:/Program Files (x86)/SAP BusinessObjects/SAP BusinessObjects Enterprise XI 4.0/java/lib/cesession.jar"/>
+	<classpathentry kind="lib" path="C:/Program Files (x86)/SAP BusinessObjects/SAP BusinessObjects Enterprise XI 4.0/java/lib/corbaidl.jar"/>
+	<classpathentry kind="lib" path="C:/Program Files (x86)/SAP BusinessObjects/SAP BusinessObjects Enterprise XI 4.0/java/lib/ebus405.jar"/>
+	<classpathentry kind="lib" path="C:/Program Files (x86)/SAP BusinessObjects/SAP BusinessObjects Enterprise XI 4.0/java/lib/logging.jar"/>
+	<classpathentry kind="lib" path="C:/Program Files (x86)/SAP BusinessObjects/SAP BusinessObjects Enterprise XI 4.0/java/lib/TraceLog.jar"/>
+	<classpathentry kind="lib" path="C:/Program Files (x86)/SAP BusinessObjects/SAP BusinessObjects Enterprise XI 4.0/java/lib/activation.jar"/>
+	<classpathentry kind="lib" path="C:/Program Files (x86)/SAP BusinessObjects/SAP BusinessObjects Enterprise XI 4.0/java/lib/aspectjrt.jar"/>
+	<classpathentry kind="lib" path="C:/Program Files (x86)/SAP BusinessObjects/SAP BusinessObjects Enterprise XI 4.0/java/lib/external/axis2/1.7.9/axiom-api-1.2.21.jar"/>
+	<classpathentry kind="lib" path="C:/Program Files (x86)/SAP BusinessObjects/SAP BusinessObjects Enterprise XI 4.0/java/lib/external/axis2/1.7.9/axiom-impl-1.2.21.jar"/>
+	<classpathentry kind="lib" path="C:/Program Files (x86)/SAP BusinessObjects/SAP BusinessObjects Enterprise XI 4.0/java/lib/external/axis2/1.7.9/axis2-adb-1.7.9.jar"/>
+	<classpathentry kind="lib" path="C:/Program Files (x86)/SAP BusinessObjects/SAP BusinessObjects Enterprise XI 4.0/java/lib/external/axis2/1.7.9/axis2-kernel-1.7.9.jar"/>
+	<classpathentry kind="lib" path="C:/Program Files (x86)/SAP BusinessObjects/SAP BusinessObjects Enterprise XI 4.0/java/lib/external/axis2/1.7.9/axis2-saaj-1.7.9.jar"/>
+	<classpathentry kind="lib" path="C:/Program Files (x86)/SAP BusinessObjects/SAP BusinessObjects Enterprise XI 4.0/java/lib/com.sap.js.passport.api.jar"/>
+	<classpathentry kind="lib" path="C:/Program Files (x86)/SAP BusinessObjects/SAP BusinessObjects Enterprise XI 4.0/java/lib/commons-logging.jar"/>
+	<classpathentry kind="lib" path="C:/Program Files (x86)/SAP BusinessObjects/SAP BusinessObjects Enterprise XI 4.0/java/lib/external/derby-10.14/derby.jar"/>
+	<classpathentry kind="lib" path="C:/Program Files (x86)/SAP BusinessObjects/SAP BusinessObjects Enterprise XI 4.0/java/lib/external/freessl201.jar"/>
+	<classpathentry kind="lib" path="C:/Program Files (x86)/SAP BusinessObjects/SAP BusinessObjects Enterprise XI 4.0/java/lib/external/log4j.jar"/>
+	<classpathentry kind="lib" path="C:/Program Files (x86)/SAP BusinessObjects/SAP BusinessObjects Enterprise XI 4.0/java/lib/sapjce.jar"/>
+	<classpathentry kind="output" path="bin"/>
+</classpath>
