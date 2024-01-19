@@ -16,7 +16,6 @@ import	com.crystaldecisions.sdk.framework.*;
 public class CreateReportListing implements IProgramBase{
 	FileWriter fw;
 
-	@SuppressWarnings("rawtypes")
 	public static void main(String[] args) 
 	{
 		// *****************
