@@ -5,10 +5,8 @@ import com.crystaldecisions.sdk.framework.IEnterpriseSession;
 import com.crystaldecisions.sdk.occa.infostore.IInfoObject;
 import com.crystaldecisions.sdk.occa.infostore.IInfoObjects;
 import com.crystaldecisions.sdk.occa.infostore.IInfoStore;
-import com.crystaldecisions.sdk.plugin.CeKind;
 import com.crystaldecisions.sdk.plugin.desktop.program.IProgramBase;
 import	com.crystaldecisions.sdk.framework.*;
-
 
 public class UploadAgnosticFile implements IProgramBase{
 	
@@ -96,7 +94,7 @@ public class UploadAgnosticFile implements IProgramBase{
 			enterpriseFolder = args[2];
 			infoObjectType = args[3];
 		}
-
+		
 		// Declare Query Variables
 		queryString="Select TOP 1 SI_ID From CI_INFOOBJECTS Where SI_KIND='Folder' And SI_NAME='" + enterpriseFolder + "'";
 			
@@ -106,28 +104,39 @@ public class UploadAgnosticFile implements IProgramBase{
 				int folderID;
 				IInfoObjects infoObjects;
 				IInfoObject infoObject;
+				int reportcount;
 				
 				// Instantiate the InfoStore object
 				boInfoStore = (IInfoStore) boEnterpriseSession.getService("", "InfoStore");
-			    	
+		
 				// Execute the repository query
 				folderID = ((IInfoObject) boInfoStore.query(queryString).get(0)).getID();
-				infoObjects = boInfoStore.newInfoObjectCollection();
 				
-			    infoObject = infoObjects.add(infoObjectType);
-			    infoObject.setTitle(filename);
-			    infoObject.getFiles().addFile(filePath);
-			    infoObject.setParentID(folderID);
-			    boInfoStore.commit(infoObjects);
-		    
+				//Test to see if file already exists
+				queryString = "Select TOP 1 SI_ID From CI_INFOOBJECTS where si_parentid=" + folderID + " And SI_NAME='" + filename + "'";
+				reportcount= boInfoStore.query(queryString).getResultSize();
+
+				if (reportcount != 0)
+				{
+					// File already exists, so we need to delete it from repository
+					infoObject = ((IInfoObject) boInfoStore.query(queryString).get(0));
+					infoObject.deleteNow();
+					System.out.println("File already exists, so deleted " + filename + " from the BO folder " + enterpriseFolder);
+				}
+				
+				// Add file
+				infoObjects = boInfoStore.newInfoObjectCollection();
+					
+				infoObject = infoObjects.add(infoObjectType);
+				infoObject.setTitle(filename);
+				infoObject.getFiles().addFile(filePath);
+				infoObject.setParentID(folderID);
+				boInfoStore.commit(infoObjects);
+				System.out.println("Added " + filePath + " to the BO folder " + enterpriseFolder);
 			}    	
 		    catch(SDKException e)
 		    {
 	        	System.out.println(e.getMessage());
-		    }
-		    finally
-		    {
-				System.out.println("Added " + filePath + " to the BO folder " + enterpriseFolder);
 		    }
 		
 	}
