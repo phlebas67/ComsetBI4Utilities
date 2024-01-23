@@ -2,6 +2,7 @@ package comset.boe4utilities;
 
 import com.crystaldecisions.sdk.exception.SDKException;
 import com.crystaldecisions.sdk.framework.IEnterpriseSession;
+import com.crystaldecisions.sdk.occa.infostore.IFiles;
 import com.crystaldecisions.sdk.occa.infostore.IInfoObject;
 import com.crystaldecisions.sdk.occa.infostore.IInfoObjects;
 import com.crystaldecisions.sdk.occa.infostore.IInfoStore;
@@ -87,12 +88,17 @@ public class UploadAgnosticFile implements IProgramBase{
 		}
 			
 		//Retrieve arguments if run from Job Server
-		if (args.length == 4)
+		else if (args.length == 4)
 		{
 			filename = args[0];	
 			filePath = args[1];
 			enterpriseFolder = args[2];
 			infoObjectType = args[3];
+		}
+		else
+		{
+			System.out.println("An incorrect number of parameters was entered");
+			System.exit(1);
 		}
 		
 		// Declare Query Variables
@@ -116,23 +122,42 @@ public class UploadAgnosticFile implements IProgramBase{
 				queryString = "Select TOP 1 SI_ID From CI_INFOOBJECTS where si_parentid=" + folderID + " And SI_NAME='" + filename + "'";
 				reportcount= boInfoStore.query(queryString).getResultSize();
 
-				if (reportcount != 0)
+				if (reportcount == 0)
 				{
-					// File already exists, so we need to delete it from repository
-					infoObject = ((IInfoObject) boInfoStore.query(queryString).get(0));
-					infoObject.deleteNow();
-					System.out.println("File already exists, so deleted " + filename + " from the BO folder " + enterpriseFolder);
+					// The file currently does not exist in the destination folder, so add it
+					infoObjects = boInfoStore.newInfoObjectCollection();
+						
+					infoObject = infoObjects.add(infoObjectType);
+					infoObject.setTitle(filename);
+					infoObject.getFiles().addFile(filePath);
+					infoObject.setParentID(folderID);
+					boInfoStore.commit(infoObjects);
+					System.out.println("Added " + filePath + " to the BO folder " + enterpriseFolder +", with the name " + filename);
 				}
-				
-				// Add file
-				infoObjects = boInfoStore.newInfoObjectCollection();
+				else if (reportcount == 1)
+				{
+					// The file already exists in the specified Enterprise , so we need to retrieve the current file and then update it
 					
-				infoObject = infoObjects.add(infoObjectType);
-				infoObject.setTitle(filename);
-				infoObject.getFiles().addFile(filePath);
-				infoObject.setParentID(folderID);
-				boInfoStore.commit(infoObjects);
-				System.out.println("Added " + filePath + " to the BO folder " + enterpriseFolder);
+					//Retrieve relevant SI_FILES property
+					//Determine ID of relevant object in repository
+					int objID = ((IInfoObject) boInfoStore.query(queryString).get(0)).getID();
+					
+					//Retrieve SI_FILES property
+					IFiles objFiles;
+					
+					queryString = "Select SI_FILES From CI_INFOOBJECTS where SI_ID=" + objID;
+					infoObject = (IInfoObject) boInfoStore.query(queryString).get(0);
+					objFiles = (IFiles) infoObject.getFiles();
+					
+					//Replace current file with the new one
+					objFiles.replace(0, filePath);
+					
+					//Save updated object back to repository
+					infoObject.save();
+					
+					System.out.println("File " + filename + " already exists in the folder " + enterpriseFolder + " so it has been updated");
+				}
+
 			}    	
 		    catch(SDKException e)
 		    {
