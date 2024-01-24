@@ -27,5 +27,6 @@
 	<classpathentry kind="lib" path="C:/Program Files (x86)/SAP BusinessObjects/SAP BusinessObjects Enterprise XI 4.0/java/lib/external/freessl201.jar"/>
 	<classpathentry kind="lib" path="C:/Program Files (x86)/SAP BusinessObjects/SAP BusinessObjects Enterprise XI 4.0/java/lib/external/log4j.jar"/>
 	<classpathentry kind="lib" path="C:/Program Files (x86)/SAP BusinessObjects/SAP BusinessObjects Enterprise XI 4.0/java/lib/sapjce.jar"/>
+	<classpathentry kind="lib" path="C:/Program Files (x86)/SAP BusinessObjects/SAP BusinessObjects Enterprise XI 4.0/java/lib/opencsv-2.1.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
