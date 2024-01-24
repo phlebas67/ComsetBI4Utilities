@@ -2,13 +2,18 @@ package comset.boe4utilities;
 
 import java.io.FileReader;
 import java.util.List;
+import java.util.Set;
 
 import com.crystaldecisions.sdk.exception.SDKException;
 import com.crystaldecisions.sdk.framework.CrystalEnterprise;
 import com.crystaldecisions.sdk.framework.IEnterpriseSession;
 import com.crystaldecisions.sdk.framework.ISessionMgr;
+import com.crystaldecisions.sdk.occa.infostore.IInfoObjects;
 import com.crystaldecisions.sdk.occa.infostore.IInfoStore;
 import com.crystaldecisions.sdk.plugin.desktop.program.IProgramBase;
+import com.crystaldecisions.sdk.plugin.desktop.usergroup.IUserGroup;
+
+
 import au.com.bytecode.opencsv.*;
 
 public class BulkLoadUsersFromCSV implements IProgramBase{
@@ -27,8 +32,6 @@ public class BulkLoadUsersFromCSV implements IProgramBase{
 		String cmsName = null;
 		String password = null;
 		String authType = null;
-		String csvFile = null;
-		String csvSeparator = null;
 		
 		// Logon Information
 		// To pass the arguments to the main method in the Eclipse IDE, set the values in the configuration. 
@@ -38,48 +41,80 @@ public class BulkLoadUsersFromCSV implements IProgramBase{
 		password = args[1];
 		cmsName = args[2];
 		authType = args[3];
-		csvFile = args[4];
-		csvSeparator = args[5];
 		
 		// Enforce all expected cmd line arguments have been submitted. 
 		// **Remember this is a sample, change values as needed.
-		if ((args.length >= 6 ) && args[0] != null)   
+		if ((args.length >= 7 ) && args[0] != null)   
 		{
-/*			try 
+			try 
 			{
 				// Initialize the Session Manager 
-				//boSessionMgr = CrystalEnterprise.getSessionMgr();
+				boSessionMgr = CrystalEnterprise.getSessionMgr();
 	
 				// Logon to the Session Manager to create a new BOE session.
-				//boEnterpriseSession = boSessionMgr.logon(userName, password, cmsName, authType);
-				//System.out.println("user \"" + userName + "\" logged in via main() method");
+				boEnterpriseSession = boSessionMgr.logon(userName, password, cmsName, authType);
+				System.out.println("user \"" + userName + "\" logged in via main() method");
 				
 				//Retrieve the InfoStore object
-				//boInfoStore = (IInfoStore) boEnterpriseSession.getService("", "InfoStore");
+				boInfoStore = (IInfoStore) boEnterpriseSession.getService("", "InfoStore");
 			}
 			catch (SDKException sdke)
 			{
 				System.out.println(sdke.getMessage());
 				System.exit(1);
-			}*/
-			//Read CSV file
-			readCSVFile(csvFile, csvSeparator);
+			}
 
 			//call the run() method
-			//UploadAgnosticFile uaf = new UploadAgnosticFile();
-			//uaf.run(boEnterpriseSession, boInfoStore, args);
+			BulkLoadUsersFromCSV csv = new BulkLoadUsersFromCSV();
+			csv.run(boEnterpriseSession, boInfoStore, args);
 		
 		}  //end of if statement
 
 	} //end of main method
 
 	public void run(IEnterpriseSession boEnterpriseSession, IInfoStore boInfoStore, java.lang.String[] args) {
+		
+		//First, parse arguments
+		String csvFile = null;
+		String csvSeparator = null;
+		String addToGroup = null;
+
+		//Retrieve arguments if run from Command Line
+		if (args.length == 7)
+		{
+			csvFile = args[4];	
+			csvSeparator = args[5];
+			addToGroup = args[6];
+		}
+			
+		//Retrieve arguments if run from Job Server
+		else if (args.length == 3)
+		{
+			csvFile = args[0];	
+			csvSeparator = args[1];
+			addToGroup = args[2];
+		}
+		else
+		{
+			System.out.println("An incorrect number of parameters was entered");
+			System.exit(1);
+		}
+		
+		//Retrieve CSV data into a list
+        List<String[]> csvData = null;
+        csvData = readCSVFile(csvFile, csvSeparator);
+        
+        //Process List Contents
+        processList(boEnterpriseSession, boInfoStore, csvData, addToGroup);
+       
 	}
 	
-	public static void readCSVFile(String file,String separator)
+	private static List<String[]> readCSVFile(String file,String separator)
 	{
 		System.out.println("File to read: " + file);
 		System.out.println("CSV Separator: " + separator);
+		
+        List<String[]> csvDataList = null;
 		
 		try {
 	        // Create an object of file reader class with CSV file as a parameter. 
@@ -90,16 +125,7 @@ public class BulkLoadUsersFromCSV implements IProgramBase{
 	        CSVReader csvReader = new CSVReader(filereader,delim);
 	        
 	        //Read the file into a list
-	        List<String[]> allData = csvReader.readAll();
-	        
-	        // Print Data.
-	        System.out.println(file+" has the following content:");
-	        for (String[] row : allData) { 
-	            for (String cell : row) { 
-	                System.out.print(cell + "\t"); 
-	            } 
-	            System.out.println(); 
-	        } 
+	        csvDataList = csvReader.readAll();
 	        
 	        //Close the readers
 	        filereader.close();
@@ -109,5 +135,59 @@ public class BulkLoadUsersFromCSV implements IProgramBase{
 			System.out.println(e.getMessage());
 			System.exit(1);
 		}
+		
+		return csvDataList;
+	}
+	private static void processList (IEnterpriseSession boEnterpriseSession,IInfoStore boInfoStore, List<String[]> listContents, String groupName)
+	{
+		try {
+			// See if group already exists
+			String queryString = "SELECT SI_ID, SI_NAME FROM CI_SYSTEMOBJECTS WHERE SI_KIND = 'UserGroup' AND SI_NAME = '" + groupName +"'";
+		
+			IInfoObjects boGroupInfoObjects=null;
+			boGroupInfoObjects = boInfoStore.query(queryString);
+			
+			if (boGroupInfoObjects.isEmpty())
+			{
+				//Group doesn't exist, so create it
+				IInfoObjects newGroups = boInfoStore.newInfoObjectCollection();
+				IUserGroup newUserGroup = (IUserGroup) newGroups.add(IUserGroup.KIND);
+				
+				//Set Group Properties
+				newUserGroup.setTitle(groupName);
+				newUserGroup.setDescription("Created automatically from Bulk Upload routine");
+				
+				//Commit the changes
+				boInfoStore.commit(newGroups);
+				
+				boGroupInfoObjects = newGroups;
+			}
+			// Fetch an instance of the retrieved / newly created user group
+			IUserGroup addUsersGroup = (IUserGroup) boGroupInfoObjects.get(0);
+			
+			// Create users container
+			Set usersOfGroup = addUsersGroup.getUsers();
+			/*usersOfGroup.add(user,getID());
+			boInfoStore.commit(boGroupInfoObjects);*/
+			
+	
+		}
+		catch (Exception e) {
+			System.out.println(e.getMessage());
+			System.exit(1);
+		}
+		
+		return;
+	}
+	
+	private static void printList (List<String[]> listContents)
+	{
+		System.out.println("The file has the following content:");
+        for (String[] row : listContents) { 
+            for (String cell : row) { 
+                System.out.print(cell + "\t"); 
+            } 
+            System.out.println(); 
+        } 
 	}
 }
