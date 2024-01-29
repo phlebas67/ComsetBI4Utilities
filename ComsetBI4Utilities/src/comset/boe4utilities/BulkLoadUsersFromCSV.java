@@ -11,6 +11,7 @@ import com.crystaldecisions.sdk.framework.ISessionMgr;
 import com.crystaldecisions.sdk.occa.infostore.IInfoObjects;
 import com.crystaldecisions.sdk.occa.infostore.IInfoStore;
 import com.crystaldecisions.sdk.plugin.desktop.program.IProgramBase;
+import com.crystaldecisions.sdk.plugin.desktop.user.IUser;
 import com.crystaldecisions.sdk.plugin.desktop.usergroup.IUserGroup;
 
 
@@ -130,6 +131,9 @@ public class BulkLoadUsersFromCSV implements IProgramBase{
 	        //Close the readers
 	        filereader.close();
 	        csvReader.close();
+	        
+	        //Print out the list
+	        //printList(csvDataList);
 		}
 		catch (Exception e) {
 			System.out.println(e.getMessage());
@@ -159,16 +163,50 @@ public class BulkLoadUsersFromCSV implements IProgramBase{
 				
 				//Commit the changes
 				boInfoStore.commit(newGroups);
-				
 				boGroupInfoObjects = newGroups;
+				System.out.println("Created group "+groupName);
+
 			}
 			// Fetch an instance of the retrieved / newly created user group
 			IUserGroup addUsersGroup = (IUserGroup) boGroupInfoObjects.get(0);
 			
 			// Create users container
 			Set usersOfGroup = addUsersGroup.getUsers();
-			/*usersOfGroup.add(user,getID());
-			boInfoStore.commit(boGroupInfoObjects);*/
+			
+			// Create a users collection
+			IInfoObjects newUsers = boInfoStore.newInfoObjectCollection();
+			
+			//Process Users
+			for (String[] userrow : listContents) { //Loop row by row down the list
+	        	String userName = userrow[2];
+	        	String userTitle = userrow[3];
+	        	String userPassword = userrow[4];
+	        	String userEmail = userrow[5];
+	        	
+				// See if the user already exists
+	        	//Build query string
+				queryString = "SELECT SI_ID, SI_NAME FROM CI_SYSTEMOBJECTS WHERE SI_KIND = 'User' AND SI_NAME = '" + userName +"'";
+				
+				//Execute Query
+				IInfoObjects boUserObjects = boInfoStore.query(queryString);
+				
+				if (boUserObjects.isEmpty())
+				{
+					//User doesn't exist, so create a new user
+					IUser newUser = (IUser) newUsers.add(IUser.KIND);
+					
+					//Set the relevant user properties
+					newUser.setTitle(userName);
+					newUser.setFullName(userTitle);
+					newUser.setConnection(IUser.CONCURRENT);
+					newUser.setEmailAddress(userEmail);
+					newUser.setNewPassword(userPassword);
+					
+					//Commit User
+					boInfoStore.commit(newUsers);
+				}
+				
+			}
 			
 	
 		}
@@ -184,10 +222,18 @@ public class BulkLoadUsersFromCSV implements IProgramBase{
 	{
 		System.out.println("The file has the following content:");
         for (String[] row : listContents) { 
-            for (String cell : row) { 
-                System.out.print(cell + "\t"); 
-            } 
+            /*for (String cell : row) { 
+                System.out.print(cell + "\t");*/
+        	String userID = row[2];
+        	String userName = row[3];
+        	String userPassword = row[4];
+        	String userEmail = row[5];
+        	
+        	System.out.print("userID = "+ userID + " ");
+        	System.out.print("userName = "+ userName + " ");
+        	System.out.print("userPassword = "+ userPassword + " ");
+        	System.out.print("userEmail = "+ userEmail);
             System.out.println(); 
-        } 
+            } 
 	}
 }
