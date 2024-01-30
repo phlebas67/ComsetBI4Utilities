@@ -45,7 +45,7 @@ public class BulkLoadUsersFromCSV implements IProgramBase{
 		
 		// Enforce all expected cmd line arguments have been submitted. 
 		// **Remember this is a sample, change values as needed.
-		if ((args.length >= 7 ) && args[0] != null)   
+		if ((args.length >= 6 ) && args[0] != null)   
 		{
 			try 
 			{
@@ -81,11 +81,11 @@ public class BulkLoadUsersFromCSV implements IProgramBase{
 		String addToGroup = null;
 
 		//Retrieve arguments if run from Command Line
-		if (args.length == 7)
+		if (args.length == 6)
 		{
 			csvFile = args[4];	
 			csvSeparator = args[5];
-			addToGroup = args[6];
+			addToGroup = "Test SAML Group";
 		}
 			
 		//Retrieve arguments if run from Job Server
@@ -93,7 +93,7 @@ public class BulkLoadUsersFromCSV implements IProgramBase{
 		{
 			csvFile = args[0];	
 			csvSeparator = args[1];
-			addToGroup = args[2];
+			addToGroup = "Test SAML Group";
 		}
 		else
 		{
@@ -106,7 +106,8 @@ public class BulkLoadUsersFromCSV implements IProgramBase{
         csvData = readCSVFile(csvFile, csvSeparator);
         
         //Process List Contents
-        processList(boEnterpriseSession, boInfoStore, csvData, addToGroup);
+        //processList(boEnterpriseSession, boInfoStore, csvData, addToGroup);
+        processSAMLUserList(boInfoStore, csvData);
        
 	}
 	
@@ -142,108 +143,6 @@ public class BulkLoadUsersFromCSV implements IProgramBase{
 		
 		return csvDataList;
 	}
-	private static void processList (IEnterpriseSession boEnterpriseSession,IInfoStore boInfoStore, List<String[]> listContents, String groupName)
-	{
-		try {
-			// See if group already exists
-			String queryString = "SELECT SI_ID, SI_NAME, SI_GROUP_MEMBERS FROM CI_SYSTEMOBJECTS WHERE SI_KIND = 'UserGroup' AND SI_NAME = '" + groupName +"'";
-		
-			IInfoObjects boGroupInfoObjects=null;
-			boGroupInfoObjects = boInfoStore.query(queryString);
-			
-			if (boGroupInfoObjects.isEmpty())
-			{
-				//Group doesn't exist, so create it
-				IInfoObjects newGroups = boInfoStore.newInfoObjectCollection();
-				IUserGroup newUserGroup = (IUserGroup) newGroups.add(IUserGroup.KIND);
-				
-				//Set Group Properties
-				newUserGroup.setTitle(groupName);
-				newUserGroup.setDescription("Created automatically from Bulk Upload routine");
-				
-				//Commit the changes
-				boInfoStore.commit(newGroups);
-				boGroupInfoObjects = newGroups;
-				System.out.println("Created group "+groupName);
-
-			}
-			else System.out.println("Group "+groupName+" already exists, so no need to create it");
-			// Fetch an instance of the retrieved / newly created user group
-			IUserGroup addUsersGroup = (IUserGroup) boGroupInfoObjects.get(0);
-			
-			
-			
-			//Process Users
-			for (String[] userrow : listContents) { //Loop row by row down the list
-				
-				System.out.print("Processing ");
-				for (String cell : userrow)
-					System.out.print(cell+ "\t");
-				System.out.println("");
-				
-	        	String userName = userrow[2];
-	        	String userTitle = userrow[3];
-	        	String userPassword = userrow[4];
-	        	String userEmail = userrow[5];
-	        	
-				// See if the user already exists
-	        	//Build query string
-				queryString = "SELECT SI_ID, SI_NAME FROM CI_SYSTEMOBJECTS WHERE SI_KIND = 'User' AND SI_NAME = '" + userName +"'";
-				
-				//Execute Query
-				IInfoObjects boUserObjects = boInfoStore.query(queryString);
-				
-				if (boUserObjects.isEmpty())
-				{
-					// Create a users collection
-					IInfoObjects newUsers = boInfoStore.newInfoObjectCollection();
-
-					//User doesn't exist, so create a new user
-					IUser newUser = (IUser) newUsers.add(IUser.KIND);
-					
-					//Set the relevant user properties
-					newUser.setTitle(userName);
-					newUser.setFullName(userTitle);
-					newUser.setConnection(IUser.CONCURRENT);
-					newUser.setEmailAddress(userEmail);
-					newUser.setNewPassword(userPassword);
-					
-					//Commit User
-					boInfoStore.commit(newUsers);
-					System.out.println("User " +newUser.getTitle()+" does not exist, so created with ID "+newUser.getID());
-					boUserObjects = newUsers;
-				}
-				else
-					System.out.println("User " + userName + " already exists in repository, so skipped user creation process.");
-				
-				// Add user to group
-				//Retrieve User Object
-				IUser listUser = (IUser) boUserObjects.get(0);
-				
-				//Determine whether user already exists in group
-				// Create users container
-				Set usersOfGroup = addUsersGroup.getUsers();
-				if (!usersOfGroup.contains(listUser.getID()))
-				{
-					//User is not already a member of the group, so add them
-					Integer groupID = addUsersGroup.getID();
-					listUser.getGroups().add(groupID);
-					boInfoStore.commit(boUserObjects);
-					System.out.println("User "+listUser.getTitle()+" (ID="+listUser.getID()+"), added to group "+ addUsersGroup.getTitle());
-				}
-				else System.out.println("User "+listUser.getTitle()+" is already a member of "+ addUsersGroup.getTitle()+", so no need to add to group.");
-				
-			}
-			
-	
-		}
-		catch (Exception e) {
-			System.out.println(e.getMessage());
-			System.exit(1);
-		}
-		
-		return;
-	}
 	
 	private static void printList (List<String[]> listContents)
 	{
@@ -263,4 +162,155 @@ public class BulkLoadUsersFromCSV implements IProgramBase{
             System.out.println(); 
             } 
 	}
+	private static void processSAMLUserList (IInfoStore boInfoStore, List<String[]> listContents)
+	{
+		for (String[] userrow : listContents)
+		{ //Loop row by row down the list
+			
+			// Print out Processing information
+			System.out.println("\n");
+			System.out.print("Processing ");
+			for (String cell : userrow)
+				System.out.print(cell+ "\t");
+			System.out.println("");
+			
+			// Extract user and group information from the row
+			String userName = userrow[0];
+			String userDesc = userrow[1];
+			String userPassword = userrow[2];
+			String userEmail = userrow[3];
+			String userGroup = userrow[4];
+			
+			//Create the relevant user group
+			processSAMLGroup(boInfoStore, userGroup);
+			
+			//Add user to group
+			processSAMLUser(boInfoStore, userName, userDesc, userEmail, userPassword, userGroup);
+		}
+	}
+	
+	private static void processSAMLGroup(IInfoStore boInfoStore, String samlGroupName)
+	{
+		try {
+			System.out.println("Processing group "+samlGroupName);
+
+			// See if group already exists
+			String queryString = "SELECT SI_ID, SI_NAME FROM CI_SYSTEMOBJECTS WHERE SI_KIND = 'UserGroup' AND SI_NAME = '" + samlGroupName +"'";
+		
+			IInfoObjects boGroupInfoObjects=null;
+			boGroupInfoObjects = boInfoStore.query(queryString);
+
+			if (boGroupInfoObjects.isEmpty())
+			{
+				//Group doesn't exist, so create it
+				IInfoObjects newGroups = boInfoStore.newInfoObjectCollection();
+				IUserGroup newUserGroup = (IUserGroup) newGroups.add(IUserGroup.KIND);
+				
+				//Set Group Properties
+				newUserGroup.setTitle(samlGroupName);
+				newUserGroup.setDescription("Created automatically from Bulk Upload routine");
+				
+				//Commit the changes
+				boInfoStore.commit(newGroups);
+				boGroupInfoObjects = newGroups;
+				System.out.println("Created group "+newUserGroup.getTitle());
+
+			}
+			else System.out.println("Group "+samlGroupName+" already exists, so no need to create it");
+			// Fetch an instance of the retrieved / newly created user group
+			
+		}
+		catch (Exception e) {
+			System.out.println(e.getMessage());
+			System.exit(1);
+		}
+	}
+	private static void processSAMLUser(IInfoStore boInfoStore, String userName, String userTitle, String userEmail, String userPassword, String samlGroup)
+	{
+		/* 
+		 * This routine:
+		 * Tests to see if the user already exists in the system;
+		 * Creates the user (if they don't already exist)
+		 * Tests to see if the user is already a member of the specified group
+		 * Adds the user to the group if they are not already a member
+		 */
+		try {
+			System.out.println("Processing user: "+ userName);
+			
+			// See if the user already exists
+        	
+			String queryString = "SELECT SI_ID, SI_NAME FROM CI_SYSTEMOBJECTS WHERE SI_KIND = 'User' AND SI_NAME = '" + userName +"'";
+			
+			//Execute Query
+			IInfoObjects boUserObjects = boInfoStore.query(queryString);
+			
+			if (boUserObjects.isEmpty())
+			{
+				// Create a users collection
+				IInfoObjects newUsers = boInfoStore.newInfoObjectCollection();
+
+				//User doesn't exist, so create a new user
+				IUser newUser = (IUser) newUsers.add(IUser.KIND);
+				
+				//Set the relevant user properties
+				newUser.setTitle(userName);
+				newUser.setFullName(userTitle);
+				newUser.setConnection(IUser.CONCURRENT);
+				newUser.setEmailAddress(userEmail);
+				newUser.setNewPassword(userPassword);
+				
+				//Commit User
+				boInfoStore.commit(newUsers);
+				System.out.println("User " +newUser.getTitle()+" does not exist, so created with ID "+newUser.getID());
+				boUserObjects = newUsers;
+			}
+			else
+				System.out.println("User " + userName + " already exists in repository, so skipped user creation process.");
+			
+			//Add User to Group
+			addUserToGroup(boInfoStore, userName, samlGroup);			
+		}
+		catch (Exception e) {
+			System.out.println(e.getMessage());
+			System.exit(1);
+		}
+	}
+	private static void addUserToGroup(IInfoStore boInfoStore, String userName, String groupName) {
+		/* This routine
+		 * 	Tests to see if the specified user is a member of the specified group
+		 * 	Adds them if they are not already a member of the group
+		 */
+		try {
+			//Retrieve Group Object
+			String queryString = "SELECT SI_ID, SI_NAME, SI_GROUP_MEMBERS FROM CI_SYSTEMOBJECTS WHERE SI_KIND = 'UserGroup' AND SI_NAME = '" + groupName +"'";
+			IInfoObjects groupCollection = boInfoStore.query(queryString);
+			IUserGroup group = (IUserGroup) groupCollection.get(0);	
+
+			//Retrieve User Object
+			queryString = "SELECT SI_ID, SI_NAME FROM CI_SYSTEMOBJECTS WHERE SI_KIND = 'User' AND SI_NAME = '" + userName +"'";
+			IInfoObjects userCollection = boInfoStore.query(queryString);
+			IUser user = (IUser) userCollection.get(0);
+			
+			//Get the set of group members
+			Set usersOfGroup = group.getUsers();
+			
+			
+			if (!usersOfGroup.contains(user.getID()))
+			{
+				//User is not already a member of the group, so add them
+				Integer groupID = group.getID();
+				user.getGroups().add(groupID);
+				boInfoStore.commit(userCollection);
+				System.out.println("User "+user.getTitle()+" (ID="+user.getID()+"), added to group "+ group.getTitle());
+			}
+			else System.out.println("User "+user.getTitle()+" is already a member of "+ group.getTitle()+", so no need to add to group.");
+		}
+		catch (Exception e) {
+			System.out.println(e.getMessage());
+			System.exit(1);
+		}
+
+	}
 }
+
+
