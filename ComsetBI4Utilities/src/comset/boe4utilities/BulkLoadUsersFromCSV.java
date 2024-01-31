@@ -1,6 +1,7 @@
 package comset.boe4utilities;
 
 import java.io.FileReader;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
@@ -8,6 +9,7 @@ import com.crystaldecisions.sdk.exception.SDKException;
 import com.crystaldecisions.sdk.framework.CrystalEnterprise;
 import com.crystaldecisions.sdk.framework.IEnterpriseSession;
 import com.crystaldecisions.sdk.framework.ISessionMgr;
+import com.crystaldecisions.sdk.occa.infostore.IInfoObject;
 import com.crystaldecisions.sdk.occa.infostore.IInfoObjects;
 import com.crystaldecisions.sdk.occa.infostore.IInfoStore;
 import com.crystaldecisions.sdk.plugin.desktop.program.IProgramBase;
@@ -43,8 +45,6 @@ public class BulkLoadUsersFromCSV implements IProgramBase{
 		cmsName = args[2];
 		authType = args[3];
 		
-		// Enforce all expected cmd line arguments have been submitted. 
-		// **Remember this is a sample, change values as needed.
 		if ((args.length >= 6 ) && args[0] != null)   
 		{
 			try 
@@ -78,14 +78,12 @@ public class BulkLoadUsersFromCSV implements IProgramBase{
 		//First, parse arguments
 		String csvFile = null;
 		String csvSeparator = null;
-		String addToGroup = null;
-
+		
 		//Retrieve arguments if run from Command Line
 		if (args.length == 6)
 		{
 			csvFile = args[4];	
 			csvSeparator = args[5];
-			addToGroup = "Test SAML Group";
 		}
 			
 		//Retrieve arguments if run from Job Server
@@ -93,7 +91,6 @@ public class BulkLoadUsersFromCSV implements IProgramBase{
 		{
 			csvFile = args[0];	
 			csvSeparator = args[1];
-			addToGroup = "Test SAML Group";
 		}
 		else
 		{
@@ -106,7 +103,6 @@ public class BulkLoadUsersFromCSV implements IProgramBase{
         csvData = readCSVFile(csvFile, csvSeparator);
         
         //Process List Contents
-        //processList(boEnterpriseSession, boInfoStore, csvData, addToGroup);
         processSAMLUserList(boInfoStore, csvData);
        
 	}
@@ -144,6 +140,7 @@ public class BulkLoadUsersFromCSV implements IProgramBase{
 		return csvDataList;
 	}
 	
+	@SuppressWarnings("unused")
 	private static void printList (List<String[]> listContents)
 	{
 		System.out.println("The file has the following content:");
@@ -164,9 +161,18 @@ public class BulkLoadUsersFromCSV implements IProgramBase{
 	}
 	private static void processSAMLUserList (IInfoStore boInfoStore, List<String[]> listContents)
 	{
+		String groupPrefix ="SAMLGROUP_";
+		String samlParentGroupName ="SAML - All User Groups";
+		String samlUnmatchedParentGroupName ="SAML - Non-Mapped User Groups";
+
+		//Create top-level SAML group (if it doesn't already exist
+		createTopLevelSAMLGroup(boInfoStore, samlParentGroupName);
+		//Create a top-level SAML group to capture all non-matched SAML Groups
+		createTopLevelSAMLGroup(boInfoStore, samlUnmatchedParentGroupName);
+		
+		//Loop row by row down the list
 		for (String[] userrow : listContents)
-		{ //Loop row by row down the list
-			
+		{
 			// Print out Processing information
 			System.out.println("\n");
 			System.out.print("Processing ");
@@ -181,21 +187,25 @@ public class BulkLoadUsersFromCSV implements IProgramBase{
 			String userEmail = userrow[3];
 			String userGroup = userrow[4];
 			
+			String samlUserGroupName = groupPrefix+userGroup;
+			
 			//Create the relevant user group
-			processSAMLGroup(boInfoStore, userGroup);
+			processSAMLGroup(boInfoStore, groupPrefix, userGroup, samlParentGroupName,samlUnmatchedParentGroupName);
 			
 			//Add user to group
-			processSAMLUser(boInfoStore, userName, userDesc, userEmail, userPassword, userGroup);
+			processSAMLUser(boInfoStore, userName, userDesc, userEmail, userPassword, samlUserGroupName);
 		}
 	}
 	
-	private static void processSAMLGroup(IInfoStore boInfoStore, String samlGroupName)
+	private static void processSAMLGroup(IInfoStore boInfoStore, String groupPrefix, String samlGroupName, String toplevelSAMLGroupName, String toplevelUnmappedSAMLGroupName)
 	{
 		try {
-			System.out.println("Processing group "+samlGroupName);
+			String userGroupWithPrefix = groupPrefix+samlGroupName;
+
+			System.out.println("Processing group "+userGroupWithPrefix);
 
 			// See if group already exists
-			String queryString = "SELECT SI_ID, SI_NAME FROM CI_SYSTEMOBJECTS WHERE SI_KIND = 'UserGroup' AND SI_NAME = '" + samlGroupName +"'";
+			String queryString = "SELECT SI_ID, SI_NAME FROM CI_SYSTEMOBJECTS WHERE SI_KIND = 'UserGroup' AND SI_NAME = '" + userGroupWithPrefix +"'";
 		
 			IInfoObjects boGroupInfoObjects=null;
 			boGroupInfoObjects = boInfoStore.query(queryString);
@@ -207,7 +217,7 @@ public class BulkLoadUsersFromCSV implements IProgramBase{
 				IUserGroup newUserGroup = (IUserGroup) newGroups.add(IUserGroup.KIND);
 				
 				//Set Group Properties
-				newUserGroup.setTitle(samlGroupName);
+				newUserGroup.setTitle(userGroupWithPrefix);
 				newUserGroup.setDescription("Created automatically from Bulk Upload routine");
 				
 				//Commit the changes
@@ -215,8 +225,14 @@ public class BulkLoadUsersFromCSV implements IProgramBase{
 				boGroupInfoObjects = newGroups;
 				System.out.println("Created group "+newUserGroup.getTitle());
 
+				//Add group to top-level Parent Group
+				addSubgroupToParentGroup(boInfoStore, userGroupWithPrefix, toplevelSAMLGroupName);
+				
+				//Find sibling groups
+				matchSiblingGroups(boInfoStore, samlGroupName, groupPrefix, toplevelUnmappedSAMLGroupName);
+
 			}
-			else System.out.println("Group "+samlGroupName+" already exists, so no need to create it");
+			else System.out.println("Group "+userGroupWithPrefix+" already exists, so no need to create it");
 			// Fetch an instance of the retrieved / newly created user group
 			
 		}
@@ -258,6 +274,7 @@ public class BulkLoadUsersFromCSV implements IProgramBase{
 				newUser.setConnection(IUser.CONCURRENT);
 				newUser.setEmailAddress(userEmail);
 				newUser.setNewPassword(userPassword);
+				newUser.setDescription("Created automatically from Bulk Upload routine");
 				
 				//Commit User
 				boInfoStore.commit(newUsers);
@@ -275,6 +292,7 @@ public class BulkLoadUsersFromCSV implements IProgramBase{
 			System.exit(1);
 		}
 	}
+	@SuppressWarnings({ "rawtypes", "unchecked" })
 	private static void addUserToGroup(IInfoStore boInfoStore, String userName, String groupName) {
 		/* This routine
 		 * 	Tests to see if the specified user is a member of the specified group
@@ -293,8 +311,7 @@ public class BulkLoadUsersFromCSV implements IProgramBase{
 			
 			//Get the set of group members
 			Set usersOfGroup = group.getUsers();
-			
-			
+						
 			if (!usersOfGroup.contains(user.getID()))
 			{
 				//User is not already a member of the group, so add them
@@ -311,6 +328,115 @@ public class BulkLoadUsersFromCSV implements IProgramBase{
 		}
 
 	}
+	
+	private static void createTopLevelSAMLGroup(IInfoStore boInfoStore,String samlParentGroup) {
+	// This routine checks / creates the parent group for all the other groups
+		try {
+			System.out.println("Checking / Creating Top Level SAML GroupProcessing group "+samlParentGroup+"\n");
+
+			// See if group already exists
+			String queryString = "SELECT SI_ID, SI_NAME FROM CI_SYSTEMOBJECTS WHERE SI_KIND = 'UserGroup' AND SI_NAME = '" + samlParentGroup +"'";
+		
+			IInfoObjects boGroupInfoObjects=null;
+			boGroupInfoObjects = boInfoStore.query(queryString);
+
+			if (boGroupInfoObjects.isEmpty())
+			{
+				//Group doesn't exist, so create it
+				IInfoObjects newGroups = boInfoStore.newInfoObjectCollection();
+				IUserGroup newUserGroup = (IUserGroup) newGroups.add(IUserGroup.KIND);
+				
+				//Set Group Properties
+				newUserGroup.setTitle(samlParentGroup);
+				newUserGroup.setDescription("Top-Level Group containing all automatically bulk-created SAML groups");
+				
+				//Commit the changes
+				boInfoStore.commit(newGroups);
+				boGroupInfoObjects = newGroups;
+				System.out.println("Created group "+newUserGroup.getTitle());
+
+			}
+			else System.out.println("Group "+samlParentGroup+" already exists, so no need to create it");
+		}
+		catch (Exception e) {
+			System.out.println(e.getMessage());
+			System.exit(1);
+		}
+	}
+	@SuppressWarnings("unchecked")
+	private static void addSubgroupToParentGroup(IInfoStore boInfoStore, String subGroupName, String parentGroupName) {
+		try {
+			
+			//Retrieve Sub-group Object
+			String queryString = "SELECT SI_ID, SI_NAME FROM CI_SYSTEMOBJECTS WHERE SI_KIND = 'UserGroup' AND SI_NAME = '" + subGroupName +"'";
+			IInfoObjects subgroupCollection = boInfoStore.query(queryString);
+			IUserGroup subgroup = (IUserGroup) subgroupCollection.get(0);	
+
+			//Retrieve Parent-group Object
+			queryString = "SELECT SI_ID, SI_NAME FROM CI_SYSTEMOBJECTS WHERE SI_KIND = 'UserGroup' AND SI_NAME = '" + parentGroupName +"'";
+			IInfoObjects parentgroupCollection = boInfoStore.query(queryString);
+			IUserGroup parentgroup = (IUserGroup) parentgroupCollection.get(0);	
+			
+			//Add subgroup to parent group
+			parentgroup.getSubGroups().add(subgroup.getID());
+			boInfoStore.commit(parentgroupCollection);
+			
+			System.out.println("Added group "+subGroupName+" to group "+parentGroupName);
+		}
+		catch (Exception e) {
+			System.out.println(e.getMessage());
+			System.exit(1);
+		}
+	}
+	@SuppressWarnings({ "rawtypes"})
+	private static void matchSiblingGroups(IInfoStore boInfoStore, String groupName, String samlGroupPrefix, String samlUnmatchedParentGroupName) {
+		
+		try {
+			//First Find similar Group Names
+			String matchqueryString = "SELECT SI_ID, SI_NAME FROM CI_SYSTEMOBJECTS WHERE SI_KIND = 'UserGroup' AND SI_NAME Like '%" + groupName +"%' AND SI_NAME != '"+ samlGroupPrefix+groupName+"'";
+			IInfoObjects matchgroupCollection = boInfoStore.query(matchqueryString);
+			
+			// Loop through the collection until no reports remain
+			Iterator matchingGroupIter = matchgroupCollection.iterator();
+			
+			if (!matchingGroupIter.hasNext()) 
+				//No matching groups found, so add this group to the Unamtched SAML group
+				addSubgroupToParentGroup(boInfoStore, samlGroupPrefix+groupName, samlUnmatchedParentGroupName);
+
+			while (matchingGroupIter.hasNext()) {
+				IInfoObject	matchinggroup = (IInfoObject) matchingGroupIter.next();
+				
+				//Find Parents of Matching Group
+				String parentsqueryString = "SELECT SI_ID, SI_NAME, SI_USERGROUPS FROM CI_SYSTEMOBJECTS WHERE SI_KIND = 'UserGroup' AND SI_NAME = '" + matchinggroup.getTitle() +"'";
+				IUserGroup group = (IUserGroup) boInfoStore.query(parentsqueryString).get(0);
+				
+				//Retrieve the set of Parent Groups
+				Set parentGroups =group.getParentGroups();
+				
+				//Loop through the parents
+				Iterator parentGroupIter = parentGroups.iterator();
+				
+				while (parentGroupIter.hasNext()) {
+					Integer parentGroupID = (Integer) parentGroupIter.next();
+
+					//Retrieve Parent Group
+					parentsqueryString = "SELECT SI_ID, SI_NAME FROM CI_SYSTEMOBJECTS WHERE SI_KIND = 'UserGroup' AND SI_ID =" +parentGroupID;
+					IUserGroup parentGroup = (IUserGroup) boInfoStore.query(parentsqueryString).get(0);
+					
+					//Add group to the matched group's parent
+					addSubgroupToParentGroup(boInfoStore, samlGroupPrefix+groupName, parentGroup.getTitle());
+				}
+
+			}
+			
+		}
+		catch (SDKException e)
+		{
+			System.out.println(e.getMessage());
+			System.exit(1);
+		}
+	}
+
 }
 
 
