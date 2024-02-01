@@ -1,6 +1,7 @@
 package comset.boe4utilities;
 
 import java.io.FileReader;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -103,8 +104,48 @@ public class BulkLoadUsersFromCSV implements IProgramBase{
         csvData = readCSVFile(csvFile, csvSeparator);
         
         //Process List Contents
-        processSAMLUserList(boInfoStore, csvData);
+        processSAMLList(boInfoStore, csvData, "SAMLGROUP_","SAML - All User Groups","SAML - Non-Mapped User Groups");
        
+	}
+	private static void processSAMLList(IInfoStore boInfoStore, List<String[]> listContents, String groupPrefix, String samlParentGroupName, String samlUnmatchedParentGroupName) {
+
+		//Create top-level SAML group (if it doesn't already exist
+		createTopLevelSAMLGroup(boInfoStore, samlParentGroupName);
+		
+		//Create a top-level SAML group to capture all non-matched SAML Groups
+		createTopLevelSAMLGroup(boInfoStore, samlUnmatchedParentGroupName);
+
+		
+		//Create a set of the unique group names in the file
+		HashSet<String> processedGroups = new HashSet<String>();
+
+		//Loop down each row of the file
+		for (String[] userrow : listContents)
+		{
+			//Build group name
+			String groupName = userrow[4];
+			String samlGroupName = groupPrefix+groupName;
+			
+			//Check to see if group has already been processed
+			if (!processedGroups.contains(groupName))
+			{
+				//Create the relevant user group
+				processSAMLGroup(boInfoStore, groupPrefix, groupName, samlParentGroupName,samlUnmatchedParentGroupName);
+				
+				//Add group to the set of processed groups
+				processedGroups.add(groupName);
+			}
+		}
+		
+		//Create top-level SAML group (if it doesn't already exist
+		//CreateTopLevelSAMLGroup(boInfoStore, samlParentGroupName);
+		
+		//Create a top-level SAML group to capture all non-matched SAML Groups
+		//createTopLevelSAMLGroup(boInfoStore, samlUnmatchedParentGroupName);
+		
+		
+
+
 	}
 	
 	private static List<String[]> readCSVFile(String file,String separator)
