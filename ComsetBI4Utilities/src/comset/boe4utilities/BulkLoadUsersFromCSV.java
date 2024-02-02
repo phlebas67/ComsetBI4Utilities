@@ -137,6 +137,35 @@ public class BulkLoadUsersFromCSV implements IProgramBase{
 			}
 		}
 		
+		//Process Users in File
+		//Create a set of the unique usernames in the file
+		HashSet<String> processedUsers = new HashSet<String>();
+
+		//Loop down each row of the file
+		for (String[] userrow : listContents)
+		{
+			//Extract User Attributes
+			String userName = userrow[0];
+			
+			//Check to see if user has already been created
+			if (!processedUsers.contains(userName))
+			{
+				String userTitle = userrow[1];
+				String userPassword = userrow[2];
+				String userEmail = userrow[3];
+
+				//Create the relevant user
+				createUser(boInfoStore, userName, userTitle, userEmail, userPassword);
+				
+				//Add user to the set of processed users
+				processedUsers.add(userName);
+			}
+			String userGroup= userrow[4];
+			
+			//Add user to user group
+			addUserToGroup(boInfoStore, userName, groupPrefix+userGroup);
+		}
+		
 	}
 	
 	private static List<String[]> readCSVFile(String file,String separator)
@@ -236,14 +265,13 @@ public class BulkLoadUsersFromCSV implements IProgramBase{
 			System.exit(1);
 		}
 	}
-	private static void processSAMLUser(IInfoStore boInfoStore, String userName, String userTitle, String userEmail, String userPassword, String samlGroup)
+		
+	private static void createUser(IInfoStore boInfoStore, String userName, String userTitle, String userEmail, String userPassword)
 	{
 		/* 
 		 * This routine:
 		 * Tests to see if the user already exists in the system;
 		 * Creates the user (if they don't already exist)
-		 * Tests to see if the user is already a member of the specified group
-		 * Adds the user to the group if they are not already a member
 		 */
 		try {
 			System.out.println("Processing user: "+ userName);
@@ -278,15 +306,13 @@ public class BulkLoadUsersFromCSV implements IProgramBase{
 			}
 			else
 				System.out.println("User " + userName + " already exists in repository, so skipped user creation process.");
-			
-			//Add User to Group
-			addUserToGroup(boInfoStore, userName, samlGroup);			
 		}
 		catch (Exception e) {
 			System.out.println(e.getMessage());
 			System.exit(1);
 		}
 	}
+
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	private static void addUserToGroup(IInfoStore boInfoStore, String userName, String groupName) {
 		/* This routine
@@ -313,7 +339,7 @@ public class BulkLoadUsersFromCSV implements IProgramBase{
 				Integer groupID = group.getID();
 				user.getGroups().add(groupID);
 				boInfoStore.commit(userCollection);
-				System.out.println("User "+user.getTitle()+" (ID="+user.getID()+"), added to group "+ group.getTitle());
+				System.out.println("User "+user.getTitle()+" added to group "+ group.getTitle());
 			}
 			else System.out.println("User "+user.getTitle()+" is already a member of "+ group.getTitle()+", so no need to add to group.");
 		}
