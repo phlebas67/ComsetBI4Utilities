@@ -10,12 +10,13 @@ import com.crystaldecisions.sdk.exception.SDKException;
 import com.crystaldecisions.sdk.framework.CrystalEnterprise;
 import com.crystaldecisions.sdk.framework.IEnterpriseSession;
 import com.crystaldecisions.sdk.framework.ISessionMgr;
-import com.crystaldecisions.sdk.occa.infostore.IInfoObject;
 import com.crystaldecisions.sdk.occa.infostore.IInfoObjects;
 import com.crystaldecisions.sdk.occa.infostore.IInfoStore;
 import com.crystaldecisions.sdk.plugin.desktop.program.IProgramBase;
 import com.crystaldecisions.sdk.plugin.desktop.user.IUser;
 import com.crystaldecisions.sdk.plugin.desktop.usergroup.IUserGroup;
+import com.crystaldecisions.sdk.plugin.desktop.usergroup.IUserGroupAlias;
+
 
 
 import au.com.bytecode.opencsv.*;
@@ -124,7 +125,6 @@ public class BulkLoadUsersFromCSV implements IProgramBase{
 		{
 			//Build group name
 			String groupName = userrow[4];
-			String samlGroupName = groupPrefix+groupName;
 			
 			//Check to see if group has already been processed
 			if (!processedGroups.contains(groupName))
@@ -137,21 +137,11 @@ public class BulkLoadUsersFromCSV implements IProgramBase{
 			}
 		}
 		
-		//Create top-level SAML group (if it doesn't already exist
-		//CreateTopLevelSAMLGroup(boInfoStore, samlParentGroupName);
-		
-		//Create a top-level SAML group to capture all non-matched SAML Groups
-		//createTopLevelSAMLGroup(boInfoStore, samlUnmatchedParentGroupName);
-		
-		
-
-
 	}
 	
 	private static List<String[]> readCSVFile(String file,String separator)
 	{
-		System.out.println("File to read: " + file);
-		System.out.println("CSV Separator: " + separator);
+		System.out.println("\nReading file: " + file +" with separator "+ separator+"\n");
 		
         List<String[]> csvDataList = null;
 		
@@ -200,50 +190,13 @@ public class BulkLoadUsersFromCSV implements IProgramBase{
             System.out.println(); 
             } 
 	}
-	private static void processSAMLUserList (IInfoStore boInfoStore, List<String[]> listContents)
-	{
-		String groupPrefix ="SAMLGROUP_";
-		String samlParentGroupName ="SAML - All User Groups";
-		String samlUnmatchedParentGroupName ="SAML - Non-Mapped User Groups";
-
-		//Create top-level SAML group (if it doesn't already exist
-		createTopLevelSAMLGroup(boInfoStore, samlParentGroupName);
-		//Create a top-level SAML group to capture all non-matched SAML Groups
-		createTopLevelSAMLGroup(boInfoStore, samlUnmatchedParentGroupName);
-		
-		//Loop row by row down the list
-		for (String[] userrow : listContents)
-		{
-			// Print out Processing information
-			System.out.println("\n");
-			System.out.print("Processing ");
-			for (String cell : userrow)
-				System.out.print(cell+ "\t");
-			System.out.println("");
-			
-			// Extract user and group information from the row
-			String userName = userrow[0];
-			String userDesc = userrow[1];
-			String userPassword = userrow[2];
-			String userEmail = userrow[3];
-			String userGroup = userrow[4];
-			
-			String samlUserGroupName = groupPrefix+userGroup;
-			
-			//Create the relevant user group
-			processSAMLGroup(boInfoStore, groupPrefix, userGroup, samlParentGroupName,samlUnmatchedParentGroupName);
-			
-			//Add user to group
-			processSAMLUser(boInfoStore, userName, userDesc, userEmail, userPassword, samlUserGroupName);
-		}
-	}
 	
 	private static void processSAMLGroup(IInfoStore boInfoStore, String groupPrefix, String samlGroupName, String toplevelSAMLGroupName, String toplevelUnmappedSAMLGroupName)
 	{
 		try {
 			String userGroupWithPrefix = groupPrefix+samlGroupName;
 
-			System.out.println("Processing group "+userGroupWithPrefix);
+			System.out.println("\nProcessing group "+userGroupWithPrefix);
 
 			// See if group already exists
 			String queryString = "SELECT SI_ID, SI_NAME FROM CI_SYSTEMOBJECTS WHERE SI_KIND = 'UserGroup' AND SI_NAME = '" + userGroupWithPrefix +"'";
@@ -268,13 +221,14 @@ public class BulkLoadUsersFromCSV implements IProgramBase{
 
 				//Add group to top-level Parent Group
 				addSubgroupToParentGroup(boInfoStore, userGroupWithPrefix, toplevelSAMLGroupName);
-				
-				//Find sibling groups
-				matchSiblingGroups(boInfoStore, samlGroupName, groupPrefix, toplevelUnmappedSAMLGroupName);
 
 			}
 			else System.out.println("Group "+userGroupWithPrefix+" already exists, so no need to create it");
 			// Fetch an instance of the retrieved / newly created user group
+			
+			//Find sibling groups
+			//matchSiblingGroups(boInfoStore, samlGroupName, groupPrefix, toplevelUnmappedSAMLGroupName);
+			matchSiblingLDAPGroups(boInfoStore, samlGroupName, groupPrefix, toplevelUnmappedSAMLGroupName);
 			
 		}
 		catch (Exception e) {
@@ -373,7 +327,7 @@ public class BulkLoadUsersFromCSV implements IProgramBase{
 	private static void createTopLevelSAMLGroup(IInfoStore boInfoStore,String samlParentGroup) {
 	// This routine checks / creates the parent group for all the other groups
 		try {
-			System.out.println("Checking / Creating Top Level SAML GroupProcessing group "+samlParentGroup+"\n");
+			System.out.println("Checking / Creating Top Level SAML Group "+samlParentGroup);
 
 			// See if group already exists
 			String queryString = "SELECT SI_ID, SI_NAME FROM CI_SYSTEMOBJECTS WHERE SI_KIND = 'UserGroup' AND SI_NAME = '" + samlParentGroup +"'";
@@ -404,7 +358,7 @@ public class BulkLoadUsersFromCSV implements IProgramBase{
 			System.exit(1);
 		}
 	}
-	@SuppressWarnings("unchecked")
+	@SuppressWarnings({ "unchecked", "rawtypes" })
 	private static void addSubgroupToParentGroup(IInfoStore boInfoStore, String subGroupName, String parentGroupName) {
 		try {
 			
@@ -414,62 +368,101 @@ public class BulkLoadUsersFromCSV implements IProgramBase{
 			IUserGroup subgroup = (IUserGroup) subgroupCollection.get(0);	
 
 			//Retrieve Parent-group Object
-			queryString = "SELECT SI_ID, SI_NAME FROM CI_SYSTEMOBJECTS WHERE SI_KIND = 'UserGroup' AND SI_NAME = '" + parentGroupName +"'";
+			queryString = "SELECT SI_ID, SI_NAME, SI_SUBGROUPS FROM CI_SYSTEMOBJECTS WHERE SI_KIND = 'UserGroup' AND SI_NAME = '" + parentGroupName +"'";
 			IInfoObjects parentgroupCollection = boInfoStore.query(queryString);
 			IUserGroup parentgroup = (IUserGroup) parentgroupCollection.get(0);	
 			
 			//Add subgroup to parent group
-			parentgroup.getSubGroups().add(subgroup.getID());
-			boInfoStore.commit(parentgroupCollection);
+			Set subGroupsSet = parentgroup.getSubGroups();
 			
-			System.out.println("Added group "+subGroupName+" to group "+parentGroupName);
+			//See if subgroup is already a subgroup of the parent
+			if (subGroupsSet.contains(subgroup.getID()))
+				System.out.println(subGroupName + " is already a subgroup of " + parentGroupName + ", so no need to add it again.");
+			else {
+				// Add subgroup to parent group
+				parentgroup.getSubGroups().add(subgroup.getID());
+				boInfoStore.commit(parentgroupCollection);
+				
+				System.out.println("Added group "+subGroupName+" to group "+parentGroupName);
+			}
 		}
 		catch (Exception e) {
 			System.out.println(e.getMessage());
 			System.exit(1);
 		}
 	}
-	@SuppressWarnings({ "rawtypes"})
-	private static void matchSiblingGroups(IInfoStore boInfoStore, String groupName, String samlGroupPrefix, String samlUnmatchedParentGroupName) {
+
+	@SuppressWarnings("rawtypes")
+	private static void matchSiblingLDAPGroups(IInfoStore boInfoStore, String groupName, String samlGroupPrefix, String samlUnmatchedParentGroupName) {
 		
 		try {
-			//First Find similar Group Names
-			String matchqueryString = "SELECT SI_ID, SI_NAME FROM CI_SYSTEMOBJECTS WHERE SI_KIND = 'UserGroup' AND SI_NAME Like '%" + groupName +"%' AND SI_NAME != '"+ samlGroupPrefix+groupName+"'";
+			//Find similar Group Names
+			System.out.println("Looking for matching LDAP groups to " + groupName);
+			String matchqueryString = "SELECT SI_ID, SI_NAME, SI_ALIASES FROM CI_SYSTEMOBJECTS WHERE SI_KIND = 'UserGroup' AND SI_NAME Like '%CN=" + groupName +",CN%' AND SI_NAME != '"+ samlGroupPrefix+groupName+"'";
 			IInfoObjects matchgroupCollection = boInfoStore.query(matchqueryString);
 			
-			// Loop through the collection until no reports remain
+			// Loop through the matching group collection
 			Iterator matchingGroupIter = matchgroupCollection.iterator();
 			
-			if (!matchingGroupIter.hasNext()) 
-				//No matching groups found, so add this group to the Unamtched SAML group
+			if (!matchingGroupIter.hasNext()) {
+				//No matching groups found, so add this group to the Unmatched SAML group
+				System.out.println("No matching groups found, so adding group to the unmatched groups bucket!");
 				addSubgroupToParentGroup(boInfoStore, samlGroupPrefix+groupName, samlUnmatchedParentGroupName);
-
-			while (matchingGroupIter.hasNext()) {
-				IInfoObject	matchinggroup = (IInfoObject) matchingGroupIter.next();
-				
-				//Find Parents of Matching Group
-				String parentsqueryString = "SELECT SI_ID, SI_NAME, SI_USERGROUPS FROM CI_SYSTEMOBJECTS WHERE SI_KIND = 'UserGroup' AND SI_NAME = '" + matchinggroup.getTitle() +"'";
-				IUserGroup group = (IUserGroup) boInfoStore.query(parentsqueryString).get(0);
-				
-				//Retrieve the set of Parent Groups
-				Set parentGroups =group.getParentGroups();
-				
-				//Loop through the parents
-				Iterator parentGroupIter = parentGroups.iterator();
-				
-				while (parentGroupIter.hasNext()) {
-					Integer parentGroupID = (Integer) parentGroupIter.next();
-
-					//Retrieve Parent Group
-					parentsqueryString = "SELECT SI_ID, SI_NAME FROM CI_SYSTEMOBJECTS WHERE SI_KIND = 'UserGroup' AND SI_ID =" +parentGroupID;
-					IUserGroup parentGroup = (IUserGroup) boInfoStore.query(parentsqueryString).get(0);
-					
-					//Add group to the matched group's parent
-					addSubgroupToParentGroup(boInfoStore, samlGroupPrefix+groupName, parentGroup.getTitle());
-				}
-
 			}
+
+			Boolean ldapAliasFound = false;
 			
+			while (matchingGroupIter.hasNext()) {
+				// A matching group name has been found. Now check to see if it is an LDAP alias
+				IUserGroup	matchinggroup = (IUserGroup) matchingGroupIter.next();
+				
+				//Check Aliases associated with Group
+				Iterator groupAliases = (Iterator) matchinggroup.getAliases().iterator();
+				
+				String aliasName="";
+				
+				while (groupAliases.hasNext()) {
+					
+					IUserGroupAlias alias = (IUserGroupAlias) groupAliases.next();
+					aliasName = alias.getName();
+					
+					//Test to see if this is a matching LDAP alias
+					if (alias.getType() == IUserGroupAlias.THIRD_PARTY && aliasName.contains("secLDAP:cn="+groupName.toLowerCase()+",")) {
+						System.out.println("Matching LDAP alias found: "+aliasName);
+						ldapAliasFound = true;
+					}
+				}
+				if (!ldapAliasFound) {
+					System.out.println("A group with a matching name was found " + aliasName + ", but it wasn't an LDAP alias, so ignoring it!");
+					addSubgroupToParentGroup(boInfoStore, samlGroupPrefix+groupName, samlUnmatchedParentGroupName);
+				}
+				else
+				{
+					//Find Parents of Matching Group
+					System.out.println("Looking for parent groups of: " + matchinggroup.getTitle());
+					String parentsqueryString = "SELECT SI_ID, SI_NAME, SI_USERGROUPS FROM CI_SYSTEMOBJECTS WHERE SI_KIND = 'UserGroup' AND SI_NAME = '" + matchinggroup.getTitle() +"'";
+					IUserGroup group = (IUserGroup) boInfoStore.query(parentsqueryString).get(0);
+					
+					//Retrieve the set of Parent Groups
+					Set parentGroups =group.getParentGroups();
+					
+					//Loop through the parents
+					Iterator parentGroupIter = parentGroups.iterator();
+					
+					while (parentGroupIter.hasNext()) {
+						Integer parentGroupID = (Integer) parentGroupIter.next();
+
+						//Retrieve Parent Group
+						parentsqueryString = "SELECT SI_ID, SI_NAME, SI_SUBGROUPS FROM CI_SYSTEMOBJECTS WHERE SI_KIND = 'UserGroup' AND SI_ID =" +parentGroupID;
+						IUserGroup parentGroup = (IUserGroup) boInfoStore.query(parentsqueryString).get(0);
+						System.out.println("Found parent group: " + parentGroup.getTitle());
+						
+						//Add group to the matched group's parent
+						addSubgroupToParentGroup(boInfoStore, samlGroupPrefix+groupName, parentGroup.getTitle());
+					}
+					
+				}	
+			}
 		}
 		catch (SDKException e)
 		{
