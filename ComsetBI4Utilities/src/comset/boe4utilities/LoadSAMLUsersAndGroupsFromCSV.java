@@ -21,7 +21,7 @@ import com.crystaldecisions.sdk.plugin.desktop.usergroup.IUserGroupAlias;
 
 import au.com.bytecode.opencsv.*;
 
-public class BulkLoadUsersFromCSV implements IProgramBase{
+public class LoadSAMLUsersAndGroupsFromCSV implements IProgramBase{
 	public static void main(String[] args) 
 	{
 		// *****************
@@ -68,7 +68,7 @@ public class BulkLoadUsersFromCSV implements IProgramBase{
 			}
 
 			//call the run() method
-			BulkLoadUsersFromCSV csv = new BulkLoadUsersFromCSV();
+			LoadSAMLUsersAndGroupsFromCSV csv = new LoadSAMLUsersAndGroupsFromCSV();
 			csv.run(boEnterpriseSession, boInfoStore, args);
 		
 		}  //end of if statement
