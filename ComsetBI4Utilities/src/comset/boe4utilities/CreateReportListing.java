@@ -73,6 +73,7 @@ public class CreateReportListing implements IProgramBase{
 		}  //end of if statement
 	} //end of main method
 
+	@SuppressWarnings("rawtypes")
 	public void run(IEnterpriseSession boEnterpriseSession, IInfoStore boInfoStore, java.lang.String[] args) {
 		
 		// Declare variables for the output file
