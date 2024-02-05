@@ -47,7 +47,7 @@ public class LoadSAMLUsersAndGroupsFromCSV implements IProgramBase{
 		cmsName = args[2];
 		authType = args[3];
 		
-		if ((args.length >= 6 ) && args[0] != null)   
+		if (((args.length == 6 )||(args.length == 2 )) && args[0] != null)   
 		{
 			try 
 			{
@@ -72,6 +72,13 @@ public class LoadSAMLUsersAndGroupsFromCSV implements IProgramBase{
 			csv.run(boEnterpriseSession, boInfoStore, args);
 		
 		}  //end of if statement
+		else
+		{
+			System.out.println("An incorrect number of parameters was entered");
+			System.out.println("The function was expecting the following arguments: <username> <cmsname> <password> <authtype> <csvfile> <csv separator char>");
+			System.out.println("Note: If executed from within BO via a Job Server then only <csvfile> <csv separator char> are required");
+			System.exit(1);
+		}
 
 	} //end of main method
 
@@ -89,15 +96,10 @@ public class LoadSAMLUsersAndGroupsFromCSV implements IProgramBase{
 		}
 			
 		//Retrieve arguments if run from Job Server
-		else if (args.length == 3)
+		else if (args.length == 2)
 		{
 			csvFile = args[0];	
 			csvSeparator = args[1];
-		}
-		else
-		{
-			System.out.println("An incorrect number of parameters was entered");
-			System.exit(1);
 		}
 		
 		//Retrieve CSV data into a list
