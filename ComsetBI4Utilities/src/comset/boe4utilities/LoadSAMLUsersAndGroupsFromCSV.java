@@ -17,8 +17,6 @@ import com.crystaldecisions.sdk.plugin.desktop.user.IUser;
 import com.crystaldecisions.sdk.plugin.desktop.usergroup.IUserGroup;
 import com.crystaldecisions.sdk.plugin.desktop.usergroup.IUserGroupAlias;
 
-
-
 import au.com.bytecode.opencsv.*;
 
 public class LoadSAMLUsersAndGroupsFromCSV implements IProgramBase{
@@ -112,6 +110,15 @@ public class LoadSAMLUsersAndGroupsFromCSV implements IProgramBase{
 	}
 	private static void processSAMLList(IInfoStore boInfoStore, List<String[]> listContents, String groupPrefix, String samlParentGroupName, String samlUnmatchedParentGroupName) {
 
+		//Define positions of fields in file
+		final int groupNameField = 0;
+		final int userNameField = 1;
+		final int userEmailField = 2;
+		
+		//Define a constant Password for the user
+		final String userPasswordValue = "Passw0rd!";
+	
+		
 		//Create top-level SAML group (if it doesn't already exist
 		createTopLevelSAMLGroup(boInfoStore, samlParentGroupName);
 		
@@ -126,7 +133,7 @@ public class LoadSAMLUsersAndGroupsFromCSV implements IProgramBase{
 		for (String[] userrow : listContents)
 		{
 			//Build group name
-			String groupName = userrow[4];
+			String groupName = userrow[groupNameField];
 			
 			//Check to see if group has already been processed
 			if (!processedGroups.contains(groupName))
@@ -147,14 +154,14 @@ public class LoadSAMLUsersAndGroupsFromCSV implements IProgramBase{
 		for (String[] userrow : listContents)
 		{
 			//Extract User Attributes
-			String userName = userrow[0];
+			String userName = userrow[userNameField];
 			
 			//Check to see if user has already been created
 			if (!processedUsers.contains(userName))
 			{
-				String userTitle = userrow[1];
-				String userPassword = userrow[2];
-				String userEmail = userrow[3];
+				String userTitle = "";
+				String userPassword = userPasswordValue;
+				String userEmail = userrow[userEmailField];
 
 				//Create the relevant user
 				createUser(boInfoStore, userName, userTitle, userEmail, userPassword);
@@ -162,7 +169,7 @@ public class LoadSAMLUsersAndGroupsFromCSV implements IProgramBase{
 				//Add user to the set of processed users
 				processedUsers.add(userName);
 			}
-			String userGroup= userrow[4];
+			String userGroup= userrow[groupNameField];
 			
 			//Add user to user group
 			addUserToGroup(boInfoStore, userName, groupPrefix+userGroup);
