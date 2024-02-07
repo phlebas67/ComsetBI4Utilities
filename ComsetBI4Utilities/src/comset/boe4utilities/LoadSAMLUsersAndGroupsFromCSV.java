@@ -129,11 +129,24 @@ public class LoadSAMLUsersAndGroupsFromCSV implements IProgramBase{
 		//Create a set of the unique group names in the file
 		HashSet<String> processedGroups = new HashSet<String>();
 
+		int rownumber=0;
+		
 		//Loop down each row of the file
 		for (String[] userrow : listContents)
 		{
+			//Increment rownumber
+			rownumber++;
+
 			//Build group name
 			String groupName = userrow[groupNameField];
+			
+			if (groupName.isEmpty()){
+				System.out.println("");
+				System.out.println("ROW " + rownumber + " HAS AN EMPTY GROUPNAME, SO SKIPPING IT!");
+				System.out.println("");
+				continue;
+			}
+
 			
 			//Check to see if group has already been processed
 			if (!processedGroups.contains(groupName))
@@ -150,11 +163,24 @@ public class LoadSAMLUsersAndGroupsFromCSV implements IProgramBase{
 		//Create a set of the unique usernames in the file
 		HashSet<String> processedUsers = new HashSet<String>();
 
+		//Rest row number
+		rownumber=0;
+		
 		//Loop down each row of the file
 		for (String[] userrow : listContents)
 		{
+			//Increment rownumber
+			rownumber++;
+			
 			//Extract User Attributes
 			String userName = userrow[userNameField];
+			
+			if (userName.isEmpty()){
+				System.out.println("");
+				System.out.println("ROW " + rownumber + " HAS AN EMPTY USERNAME, SO SKIPPING IT!");
+				System.out.println("");
+				continue;
+			}
 			
 			//Check to see if user has already been created
 			if (!processedUsers.contains(userName))
