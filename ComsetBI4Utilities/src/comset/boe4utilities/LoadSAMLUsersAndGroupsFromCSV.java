@@ -14,6 +14,7 @@ import com.crystaldecisions.sdk.occa.infostore.IInfoObjects;
 import com.crystaldecisions.sdk.occa.infostore.IInfoStore;
 import com.crystaldecisions.sdk.plugin.desktop.program.IProgramBase;
 import com.crystaldecisions.sdk.plugin.desktop.user.IUser;
+import com.crystaldecisions.sdk.plugin.desktop.user.IUserAlias;
 import com.crystaldecisions.sdk.plugin.desktop.usergroup.IUserGroup;
 import com.crystaldecisions.sdk.plugin.desktop.usergroup.IUserGroupAlias;
 
@@ -105,10 +106,10 @@ public class LoadSAMLUsersAndGroupsFromCSV implements IProgramBase{
         csvData = readCSVFile(csvFile, csvSeparator);
         
         //Process List Contents
-        processSAMLList(boInfoStore, csvData, "SAMLGROUP_","SAML - All User Groups","SAML - Non-Mapped User Groups");
+        processSAMLList(boInfoStore, csvData, "NON-MFIL_SAMLGROUP_","NON-MFIL_SAML - All User Groups","NON-MFIL_SAML - Non-Mapped User Groups","NON-MFIL_SAML - All Users");
        
 	}
-	private static void processSAMLList(IInfoStore boInfoStore, List<String[]> listContents, String groupPrefix, String samlParentGroupName, String samlUnmatchedParentGroupName) {
+	private static void processSAMLList(IInfoStore boInfoStore, List<String[]> listContents, String groupPrefix, String samlParentGroupName, String samlUnmatchedParentGroupName, String samlAllUsersGroupName) {
 
 		//Define positions of fields in file
 		final int groupNameField = 0;
@@ -124,6 +125,9 @@ public class LoadSAMLUsersAndGroupsFromCSV implements IProgramBase{
 		
 		//Create a top-level SAML group to capture all non-matched SAML Groups
 		createTopLevelSAMLGroup(boInfoStore, samlUnmatchedParentGroupName);
+
+		//Create a top-level SAML group to contain all SAML Users
+		createTopLevelSAMLGroup(boInfoStore, samlAllUsersGroupName);
 
 		
 		//Create a set of the unique group names in the file
@@ -191,7 +195,10 @@ public class LoadSAMLUsersAndGroupsFromCSV implements IProgramBase{
 
 				//Create the relevant user
 				createUser(boInfoStore, userName, userTitle, userEmail, userPassword);
-				
+
+				//Add user to all SAML Users group
+				addUserToGroup(boInfoStore, userName, samlAllUsersGroupName);
+
 				//Add user to the set of processed users
 				processedUsers.add(userName);
 			}
@@ -199,7 +206,12 @@ public class LoadSAMLUsersAndGroupsFromCSV implements IProgramBase{
 			
 			//Add user to user group
 			addUserToGroup(boInfoStore, userName, groupPrefix+userGroup);
+			
 		}
+		
+		// Now that all users have been processed, check for any SAML users that do not appear in this processed
+		// list, and disable them
+		disableRemovedUsers(boInfoStore, processedUsers, samlAllUsersGroupName);
 		
 	}
 	
@@ -530,6 +542,57 @@ public class LoadSAMLUsersAndGroupsFromCSV implements IProgramBase{
 			System.out.println(e.getMessage());
 			System.exit(1);
 		}
+	}
+	
+	@SuppressWarnings("rawtypes")
+	private static void disableRemovedUsers(IInfoStore boInfoStore, HashSet<String> processedUsers, String allUsersGroupName) {
+		/*  This routine disables any users that are members of the all SAML users group
+		 * 	but who do not appear in the processed CSV file
+		 */
+		try {
+			System.out.println("");
+			System.out.println("Checking for any SAML users who need to be disabled, as they don't appear in the CSV file..");
+			
+			//Retrieve Group Object
+			String queryString = "SELECT SI_ID, SI_NAME, SI_GROUP_MEMBERS FROM CI_SYSTEMOBJECTS WHERE SI_KIND = 'UserGroup' AND SI_NAME = '" + allUsersGroupName +"'";
+			IInfoObjects groupCollection = boInfoStore.query(queryString);
+			IUserGroup group = (IUserGroup) groupCollection.get(0);	
+		
+			//Get the set of group members
+			Iterator allSAMLUsersIterator = group.getUsers().iterator();
+			
+			// Loop through the list of all SAML Users
+			while (allSAMLUsersIterator.hasNext())
+			{
+				// Retrieve User Object
+				Integer samlUserID = (Integer) allSAMLUsersIterator.next();
+				queryString = "SELECT SI_ID, SI_NAME, SI_ALIASES FROM CI_SYSTEMOBJECTS WHERE SI_KIND = 'User' AND SI_ID = " + samlUserID;
+				IInfoObjects userCollection = boInfoStore.query(queryString);
+				IUser samlUser = (IUser) userCollection.get(0);
+				
+				//Check whether username is in the list of Processed Users
+				if (!processedUsers.contains(samlUser.getTitle()))
+				{
+					//Retrieve list of aliases
+					Iterator aliasIterator = samlUser.getAliases().iterator();
+					while (aliasIterator.hasNext())
+					{
+						IUserAlias userAlias = (IUserAlias) aliasIterator.next();
+						if (userAlias.getType() == IUserAlias.ENTERPRISE)
+							userAlias.setDisabled(true);
+					}
+					
+					boInfoStore.commit(userCollection);
+					System.out.println("User " + samlUser.getTitle() + " does not appear in the current CSV file, so the user has been disabled");
+				}
+			}
+						
+		}
+		catch (Exception e) {
+			System.out.println(e.getMessage());
+			System.exit(1);
+		}
+
 	}
 
 }
