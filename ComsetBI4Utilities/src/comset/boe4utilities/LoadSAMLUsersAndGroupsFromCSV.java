@@ -105,11 +105,15 @@ public class LoadSAMLUsersAndGroupsFromCSV implements IProgramBase{
         List<String[]> csvData = null;
         csvData = readCSVFile(csvFile, csvSeparator);
         
-        //Process List Contents
-        processSAMLList(boInfoStore, csvData, "NON-MFIL_SAMLGROUP_","NON-MFIL_SAML - All User Groups","NON-MFIL_SAML - Non-Mapped User Groups","NON-MFIL_SAML - All Users");
+        //Process list if not empty
+        if (!csvData.isEmpty())
+            //Process List Contents
+            processSAMLList(boInfoStore, csvData);
+        else
+        	System.out.println("\"" + csvFile + "\" was empty, so nothing was processed!");
        
 	}
-	private static void processSAMLList(IInfoStore boInfoStore, List<String[]> listContents, String groupPrefix, String samlParentGroupName, String samlUnmatchedParentGroupName, String samlAllUsersGroupName) {
+	private static void processSAMLList(IInfoStore boInfoStore, List<String[]> listContents) {
 
 		//Define positions of fields in file
 		final int groupNameField = 0;
@@ -118,6 +122,16 @@ public class LoadSAMLUsersAndGroupsFromCSV implements IProgramBase{
 		
 		//Define a constant Password for the user
 		final String userPasswordValue = "Passw0rd!";
+		
+		//Build top-level group names
+		final String groupPrefix = "NON-MFIL_SAMLGROUP_";
+		final String AllParentGroupSuffix = "All User Groups";
+		final String UnmatchedParentGroupSuffix = "Non-Mapped User Groups";
+		final String AllUsersGroupSuffix = "All Users";
+		
+		String samlParentGroupName = groupPrefix+AllParentGroupSuffix;
+		String samlUnmatchedParentGroupName = groupPrefix+UnmatchedParentGroupSuffix;
+		String samlAllUsersGroupName = groupPrefix+AllUsersGroupSuffix;
 	
 		
 		//Create top-level SAML group (if it doesn't already exist
@@ -209,15 +223,16 @@ public class LoadSAMLUsersAndGroupsFromCSV implements IProgramBase{
 			
 		}
 		
-		// Now that all users have been processed, check for any SAML users that do not appear in this processed
-		// list, and disable them
+		// Perform Tidy-up routines to handle removed users / groups
 		disableRemovedUsers(boInfoStore, processedUsers, samlAllUsersGroupName);
+		removeOldGroups(boInfoStore, processedGroups, samlParentGroupName, groupPrefix);
+		
 		
 	}
 	
 	private static List<String[]> readCSVFile(String file,String separator)
 	{
-		System.out.println("\nReading file: " + file +" with separator "+ separator+"\n");
+		System.out.println("\nReading file: \"" + file +"\" with separator \""+ separator+"\"\n");
 		
         List<String[]> csvDataList = null;
 		
@@ -587,6 +602,48 @@ public class LoadSAMLUsersAndGroupsFromCSV implements IProgramBase{
 				}
 			}
 						
+		}
+		catch (Exception e) {
+			System.out.println(e.getMessage());
+			System.exit(1);
+		}
+
+	}
+
+	@SuppressWarnings("rawtypes")
+	private static void removeOldGroups(IInfoStore boInfoStore, HashSet<String> processedGroups, String allGroupsName, String groupPrefix) {
+		/*  This routine removes any SAML groups that were created in previous runs of the utility
+		 * 	but who do not appear in the current  CSV file
+		 */
+		try {
+			System.out.println("");
+			System.out.println("Checking for any SAML users groups that were previously created in historic runs of the utility, but don't appear in the current CSV file..");
+			
+			//Retrieve All SAML Group Object
+			String queryString = "SELECT SI_ID, SI_NAME FROM CI_SYSTEMOBJECTS where children (\"si_name = 'usergroup-user'\", \"si_name = '" + allGroupsName + "'\") and si_kind = 'UserGroup'";
+			IInfoObjects groupCollection = boInfoStore.query(queryString);
+		
+			//Get the set of group members
+			Iterator groupsIterator = groupCollection.iterator();
+			
+			// Loop through the list of subgroups
+			while (groupsIterator.hasNext())
+			{
+				//Retrieve sub-group
+				IUserGroup subgroup = (IUserGroup) groupsIterator.next();
+				
+				//Extract relevant part of group name
+				String groupName = subgroup.getTitle().substring(groupPrefix.length());
+				
+				//Check to see if this group is the list of processed groups in this CSV
+				if (!processedGroups.contains(groupName)) {
+					System.out.println(groupName + " was not found in this execution of the CSV file, so it will be deleted!");
+					groupCollection.delete(subgroup);
+				}
+			}
+			//Commit any deletions that were made
+			boInfoStore.commit(groupCollection);
+			
 		}
 		catch (Exception e) {
 			System.out.println(e.getMessage());
