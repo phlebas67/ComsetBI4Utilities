@@ -1,0 +1,4 @@
+Scheduling Arguments:
+In Program Parameters:
+	Arguments: "<file to import>" "separator" e.g. "C:\Temp\aprtest.csv" ","
+	Class to run: comset.boe4utilities.LoadSAMLUsersAndGroupsFromCSV
