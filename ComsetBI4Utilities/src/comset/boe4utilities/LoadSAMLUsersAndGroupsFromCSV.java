@@ -226,6 +226,7 @@ public class LoadSAMLUsersAndGroupsFromCSV implements IProgramBase{
 		// Perform Tidy-up routines to handle removed users / groups
 		disableRemovedUsers(boInfoStore, processedUsers, samlAllUsersGroupName);
 		removeOldGroups(boInfoStore, processedGroups, samlParentGroupName, groupPrefix);
+		cleanGroupMembership(boInfoStore,samlParentGroupName, groupPrefix, listContents);
 		
 		
 	}
@@ -566,7 +567,7 @@ public class LoadSAMLUsersAndGroupsFromCSV implements IProgramBase{
 		 */
 		try {
 			System.out.println("");
-			System.out.println("Checking for any SAML users who need to be disabled, as they don't appear in the CSV file..");
+			System.out.println("Checking for any SAML users who need to be disabled, as they don't appear in the current CSV file..");
 			
 			//Retrieve Group Object
 			String queryString = "SELECT SI_ID, SI_NAME, SI_GROUP_MEMBERS FROM CI_SYSTEMOBJECTS WHERE SI_KIND = 'UserGroup' AND SI_NAME = '" + allUsersGroupName +"'";
@@ -617,7 +618,7 @@ public class LoadSAMLUsersAndGroupsFromCSV implements IProgramBase{
 		 */
 		try {
 			System.out.println("");
-			System.out.println("Checking for any SAML users groups that were previously created in historic runs of the utility, but don't appear in the current CSV file..");
+			System.out.println("Checking for any SAML users groups that need to be deleted, as they were previously created in historic runs of the utility, but don't appear in the current CSV file..");
 			
 			//Retrieve All SAML Group Object
 			String queryString = "SELECT SI_ID, SI_NAME FROM CI_SYSTEMOBJECTS where children (\"si_name = 'usergroup-user'\", \"si_name = '" + allGroupsName + "'\") and si_kind = 'UserGroup'";
@@ -644,6 +645,81 @@ public class LoadSAMLUsersAndGroupsFromCSV implements IProgramBase{
 			//Commit any deletions that were made
 			boInfoStore.commit(groupCollection);
 			
+		}
+		catch (Exception e) {
+			System.out.println(e.getMessage());
+			System.exit(1);
+		}
+
+	}
+
+	@SuppressWarnings("rawtypes")
+	private static void cleanGroupMembership(IInfoStore boInfoStore, String allGroupsName, String groupPrefix, List<String[]> listContents) {
+		/*  This routine checks each SAML group to check current group membership,
+		 * 	it will remove any existing group members who are not in the current CSV file
+		 */
+		//Define positions of fields in file
+		final int groupNameField = 0;
+		final int userNameField = 1;
+
+		try {
+			System.out.println("");
+			System.out.println("Checking each SAML group to check current group membership - it will remove any existing group members who are not in the current CSV file..");
+			
+			//Retrieve All SAML Group Object
+			String queryString = "SELECT SI_ID, SI_NAME, SI_GROUP_MEMBERS FROM CI_SYSTEMOBJECTS where children (\"si_name = 'usergroup-user'\", \"si_name = '" + allGroupsName + "'\") and si_kind = 'UserGroup'";
+			IInfoObjects groupCollection = boInfoStore.query(queryString);
+		
+			//Get the set of group members
+			Iterator groupsIterator = groupCollection.iterator();
+			
+			// Loop through the list of subgroups
+			while (groupsIterator.hasNext())
+			{
+				//Retrieve sub-group
+				IUserGroup subgroup = (IUserGroup) groupsIterator.next();
+				
+				//Extract relevant part of group name
+				String groupName = subgroup.getTitle().substring(groupPrefix.length());
+				
+				//Build a set of the users in the CSV file that belong to this group
+				HashSet<String> csvUsers = new HashSet<String>();
+				
+				//Check each row of the CSV data
+				for (String[] csvRow : listContents) {
+					
+					//Extract username and group from row
+					String csvGroup = csvRow[groupNameField];
+					String csvUser = csvRow[userNameField];
+					
+					// If the extracted user group is the same as the current sub-group,
+					// then add the extracted user to the set of users
+					if (csvGroup.equalsIgnoreCase(groupName))
+						csvUsers.add(csvUser);
+				}
+				
+				//Retrieve the list of user IDs who belong to the sub-group
+				Set usersOfGroup = subgroup.getUsers();
+				Iterator userIterator = usersOfGroup.iterator();
+				
+				//Iterate down the list of users of the group
+				while (userIterator.hasNext()) {
+					Integer userID = (Integer) userIterator.next();
+					
+					//Retrieve User information
+					queryString = "SELECT SI_ID, SI_NAME, SI_USERGROUPS FROM CI_SYSTEMOBJECTS WHERE SI_KIND = 'User' AND SI_ID = " + userID;
+					IInfoObjects userCollection = boInfoStore.query(queryString);
+					IUser user = (IUser) userCollection.get(0);
+					String userName = user.getTitle();
+					
+					//Check to see if user is not a member of the processed users
+					if (!csvUsers.contains(userName)) {
+						user.getGroups().remove(subgroup.getID());
+						boInfoStore.commit(userCollection);
+						System.out.println("User " + userName + " was removed from group "+subgroup.getTitle());
+					}
+				}
+			}
 		}
 		catch (Exception e) {
 			System.out.println(e.getMessage());
