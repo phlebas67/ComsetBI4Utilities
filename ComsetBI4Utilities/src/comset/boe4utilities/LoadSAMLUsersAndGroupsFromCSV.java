@@ -20,6 +20,8 @@ import com.crystaldecisions.sdk.plugin.desktop.usergroup.IUserGroupAlias;
 
 import au.com.bytecode.opencsv.*;
 
+import com.businessobjects.bcm.BCM;
+
 public class LoadSAMLUsersAndGroupsFromCSV implements IProgramBase{
 	public static void main(String[] args) 
 	{
@@ -50,6 +52,8 @@ public class LoadSAMLUsersAndGroupsFromCSV implements IProgramBase{
 		{
 			try 
 			{
+				BCM.initializeSAPJCE();
+				
 				// Initialize the Session Manager 
 				boSessionMgr = CrystalEnterprise.getSessionMgr();
 	
@@ -119,6 +123,7 @@ public class LoadSAMLUsersAndGroupsFromCSV implements IProgramBase{
 		final int groupNameField = 0;
 		final int userNameField = 1;
 		final int userEmailField = 2;
+		final int userFullNameField = 3;
 		
 		//Define a constant Password for the user
 		final String userPasswordValue = "Passw0rd!";
@@ -203,9 +208,10 @@ public class LoadSAMLUsersAndGroupsFromCSV implements IProgramBase{
 			//Check to see if user has already been created
 			if (!processedUsers.contains(userName))
 			{
-				String userTitle = "";
+				String userTitle = userrow[userFullNameField];
 				String userPassword = userPasswordValue;
 				String userEmail = userrow[userEmailField];
+				
 
 				//Create the relevant user
 				createUser(boInfoStore, userName, userTitle, userEmail, userPassword);
