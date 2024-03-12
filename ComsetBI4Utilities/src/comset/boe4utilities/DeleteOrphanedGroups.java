@@ -10,9 +10,10 @@ import com.crystaldecisions.sdk.framework.IEnterpriseSession;
 import com.crystaldecisions.sdk.framework.ISessionMgr;
 import com.crystaldecisions.sdk.occa.infostore.IInfoObjects;
 import com.crystaldecisions.sdk.occa.infostore.IInfoStore;
+import com.crystaldecisions.sdk.plugin.desktop.program.IProgramBase;
 import com.crystaldecisions.sdk.plugin.desktop.usergroup.IUserGroup;
 
-public class DeleteOrphanedGroups {
+public class DeleteOrphanedGroups implements IProgramBase{
 
 	public static void main(String[] args) {
 		// TODO Auto-generated method stub
@@ -117,19 +118,19 @@ public class DeleteOrphanedGroups {
 			
 			if (!groupsIterator.hasNext()){
 				System.out.println("Group not found!");
+				return;
 			}
 
 			// Loop through the list of subgroups
 			while (groupsIterator.hasNext())
 			{
-				System.out.println("The group exists so deleting it");
-				//Retrieve sub-group
+				//Retrieve Group
 				IUserGroup groupToDelete = (IUserGroup) groupsIterator.next();
 				boGroupInfoObjects.delete(groupToDelete);
-				
-				//Commit any deletions that were made
-				boInfoStore.commit(boGroupInfoObjects);
+				System.out.println("Deleted Group "+groupID);
 			}
+			//Commit any deletions that were made
+			boInfoStore.commit(boGroupInfoObjects);
 			
 		}
 		catch (Exception e) {
