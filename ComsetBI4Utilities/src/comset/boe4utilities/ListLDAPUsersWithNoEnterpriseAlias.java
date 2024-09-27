@@ -1,5 +1,7 @@
 package comset.boe4utilities;
 
+import java.util.Iterator;
+
 import com.businessobjects.bcm.BCM;
 import com.crystaldecisions.sdk.exception.SDKException;
 import com.crystaldecisions.sdk.framework.CrystalEnterprise;
@@ -8,7 +10,8 @@ import com.crystaldecisions.sdk.framework.ISessionMgr;
 import com.crystaldecisions.sdk.occa.infostore.IInfoObjects;
 import com.crystaldecisions.sdk.occa.infostore.IInfoStore;
 import com.crystaldecisions.sdk.plugin.desktop.program.IProgramBase;
-import com.crystaldecisions.sdk.plugin.desktop.usergroup.IUserGroup;
+import com.crystaldecisions.sdk.plugin.desktop.user.IUser;
+import com.crystaldecisions.sdk.plugin.desktop.user.IUserAlias;
 
 public class ListLDAPUsersWithNoEnterpriseAlias implements IProgramBase{
 	public static void main(String[] args) {
@@ -47,8 +50,7 @@ public class ListLDAPUsersWithNoEnterpriseAlias implements IProgramBase{
 	
 				// Logon to the Session Manager to create a new BOE session.
 				boEnterpriseSession = boSessionMgr.logon(userName, password, cmsName, authType);
-				System.out.println("user \"" + userName + "\" logged in via main() method");
-				
+								
 				//Retrieve the InfoStore object
 				boInfoStore = (IInfoStore) boEnterpriseSession.getService("", "InfoStore");
 			}
@@ -74,27 +76,65 @@ public class ListLDAPUsersWithNoEnterpriseAlias implements IProgramBase{
 
 	}
 
+	@SuppressWarnings("rawtypes")
 	public void run(IEnterpriseSession boEnterpriseSession, IInfoStore boInfoStore, java.lang.String[] args) {
 		
-		System.out.println("In the Run method of ListLDAPUsersWithNoEnterpriseAlias");
+		try {
+				System.out.println("List of LDAP aliases with no matching Enterprise alias:");
+				
+				// Run query to get list of users
+				String queryString = "SELECT SI_ID, SI_NAME, SI_USERFULLNAME, SI_Aliases FROM CI_SYSTEMOBJECTS WHERE SI_KIND = 'User'";
+			
+				//Execute Query to retrieve a list of users
+				IInfoObjects userCollection = boInfoStore.query(queryString);
+				Iterator userIterator = userCollection.iterator(); 
+
+				// Iterate through the list of users
+				while (userIterator.hasNext()) {
+
+					IUser user = (IUser) userIterator.next();
+					
+					// Retrieve UserId and Username
+					String userName = user.getTitle();
+					String userFullName = user.getFullName();
+				
+					// Set LDAP and Enterprise flags to False
+					Boolean ldapAliasFound = false;
+					Boolean enterpriseAliasFound = false;
+				
+					//Retrieve list of aliases
+					Iterator aliasIterator = user.getAliases().iterator();
+					while (aliasIterator.hasNext())
+					{
+						IUserAlias userAlias = (IUserAlias) aliasIterator.next();
+						
+						//Retrieve Alias Name
+						String aliasName=userAlias.getName();
+						
+						// Check for an Enterprise Alias
+						if (userAlias.getType() == IUserAlias.ENTERPRISE)
+							enterpriseAliasFound = true;
+						
+						//Check for an LDAP alias
+						if (userAlias.getType() == IUserAlias.THIRD_PARTY && aliasName.contains("secLDAP")) {
+							ldapAliasFound = true;
+						}
+					}
+				
+					// If LDAP flag = True and Enterprise Flag = False, write user details to file
+					if (ldapAliasFound && !enterpriseAliasFound) {
+						if (userFullName.isEmpty())
+							System.out.println(userName);
+						else
+							System.out.println(userName + " (" + userFullName + ")");
+					}
+				}
+		}
 		
-		// Run query to get list of users
-		
-		// Iterate through list of users
-		
-			// Set LDAP and Enterprise flags to False
-		
-			// Store UserId and Username
-		
-			// Check to see if user has an LDAP alias
-				// If so, set LDAP flag to true
-		
-				// Now check to see if user has an Enterprise alias
-					// If Enterprise alias, set flag to true
-		
-				// If LDAP flag = True and Enterprise Flag = False
-					// Write UserID and Username to System Output
-		
+		catch (Exception e) {
+			System.out.println(e.getMessage());
+			System.exit(1);
+		}
 			
 	}
 
