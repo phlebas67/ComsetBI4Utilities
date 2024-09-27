@@ -13,7 +13,7 @@ import com.crystaldecisions.sdk.plugin.desktop.program.IProgramBase;
 import com.crystaldecisions.sdk.plugin.desktop.user.IUser;
 import com.crystaldecisions.sdk.plugin.desktop.user.IUserAlias;
 
-public class ListLDAPUsersWithNoEnterpriseAlias implements IProgramBase{
+public class ListEnterpriseUsersWithNoLDAPAlias implements IProgramBase{
 	public static void main(String[] args) {
 		// TODO Auto-generated method stub
 		// *****************
@@ -61,8 +61,8 @@ public class ListLDAPUsersWithNoEnterpriseAlias implements IProgramBase{
 			}
 
 			//call the run() method
-			ListLDAPUsersWithNoEnterpriseAlias ldapNoEnterprise = new ListLDAPUsersWithNoEnterpriseAlias();
-			ldapNoEnterprise.run(boEnterpriseSession, boInfoStore, args);
+			ListEnterpriseUsersWithNoLDAPAlias enterpriseNoLDAP = new ListEnterpriseUsersWithNoLDAPAlias();
+			enterpriseNoLDAP.run(boEnterpriseSession, boInfoStore, args);
 		
 		}  //end of if statement
 		else
@@ -80,7 +80,7 @@ public class ListLDAPUsersWithNoEnterpriseAlias implements IProgramBase{
 	public void run(IEnterpriseSession boEnterpriseSession, IInfoStore boInfoStore, java.lang.String[] args) {
 		
 		try {
-				System.out.println("List of LDAP aliases with no matching Enterprise alias:");
+				System.out.println("List of Enterprise aliases with no matching LDAP alias:");
 				
 				// Run query to get list of users
 				String queryString = "SELECT SI_ID, SI_NAME, SI_USERFULLNAME, SI_Aliases FROM CI_SYSTEMOBJECTS WHERE SI_KIND = 'User'";
@@ -122,7 +122,7 @@ public class ListLDAPUsersWithNoEnterpriseAlias implements IProgramBase{
 					}
 				
 					// If LDAP flag = True and Enterprise Flag = False, write user details to file
-					if (ldapAliasFound && !enterpriseAliasFound) {
+					if ( enterpriseAliasFound && !ldapAliasFound) {
 						if (userFullName.isEmpty())
 							System.out.println(userName);
 						else
