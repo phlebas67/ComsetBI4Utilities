@@ -126,9 +126,10 @@ public class DeleteOrphanedGroups implements IProgramBase{
 			{
 				//Retrieve Group
 				IUserGroup groupToDelete = (IUserGroup) groupsIterator.next();
+				String groupName = groupToDelete.getTitle();
 								
 				boGroupInfoObjects.delete(groupToDelete);
-				System.out.println("Deleted Group "+groupID+": "+groupToDelete.getTitle());
+				System.out.println("Deleted Group "+groupID+": "+groupName);
 			}
 			//Commit any deletions that were made
 			boInfoStore.commit(boGroupInfoObjects);
