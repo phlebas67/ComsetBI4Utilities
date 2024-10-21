@@ -493,7 +493,7 @@ public class LoadSAMLUsersAndGroupsFromCSV implements IProgramBase{
 		try {
 			//Find similar Group Names
 			System.out.println("Looking for matching LDAP groups to " + groupName);
-			String matchqueryString = "SELECT SI_ID, SI_NAME, SI_ALIASES FROM CI_SYSTEMOBJECTS WHERE SI_KIND = 'UserGroup' AND SI_NAME Like '%CN=" + groupName +",CN%' AND SI_NAME != '"+ samlGroupPrefix+groupName+"'";
+			String matchqueryString = "SELECT SI_ID, SI_NAME, SI_ALIASES FROM CI_SYSTEMOBJECTS WHERE SI_KIND = 'UserGroup' AND SI_NAME Like '%CN=" + groupName +",%' AND SI_NAME != '"+ samlGroupPrefix+groupName+"'";
 			IInfoObjects matchgroupCollection = boInfoStore.query(matchqueryString);
 			
 			// Loop through the matching group collection
