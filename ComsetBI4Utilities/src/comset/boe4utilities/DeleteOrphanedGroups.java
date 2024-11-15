@@ -2,6 +2,7 @@ package comset.boe4utilities;
 
 
 import java.util.Iterator;
+import java.util.List;
 
 import com.businessobjects.bcm.BCM;
 import com.crystaldecisions.sdk.exception.SDKException;
@@ -12,6 +13,10 @@ import com.crystaldecisions.sdk.occa.infostore.IInfoObjects;
 import com.crystaldecisions.sdk.occa.infostore.IInfoStore;
 import com.crystaldecisions.sdk.plugin.desktop.program.IProgramBase;
 import com.crystaldecisions.sdk.plugin.desktop.usergroup.IUserGroup;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 
 public class DeleteOrphanedGroups implements IProgramBase{
 
@@ -31,19 +36,29 @@ public class DeleteOrphanedGroups implements IProgramBase{
 		String password = null;
 		String authType = null;
 		
-		// Logon Information
-		// To pass the arguments to the main method in the Eclipse IDE, set the values in the configuration. 
-		// (Right Click the .java file > Run As > Run configuration > Arguments tab) 
+		// Parse the arguments
+		System.out.println("The number of arguments passed to the function was "+ Integer.toString(args.length));
+		for (int i=0; i < args.length; i++)
+			System.out.println("args[" + Integer.toString(i) + "] = "+ args[i]);
 		
-		userName = args[0];
-		password = args[1];
-		cmsName = args[2];
-		authType = args[3];
 		
-		if (((args.length == 5 )||(args.length == 1 )) && args[0] != null)   
+		if ((args.length == 6 )||(args.length == 2 ))   
 		{
+			String runmode = args[args.length - 2].toUpperCase();
+			
+			if ( !"CF".contains(runmode))
+			{
+				System.out.println("The <run mode> parameter must be c,C,f or F");
+				System.exit(1);
+			}
+
 			try 
 			{
+				userName = args[0];
+				password = args[1];
+				cmsName = args[2];
+				authType = args[3];
+
 				BCM.initializeSAPJCE();
 				
 				// Initialize the Session Manager 
@@ -70,8 +85,8 @@ public class DeleteOrphanedGroups implements IProgramBase{
 		else
 		{
 			System.out.println("An incorrect number of parameters was entered");
-			System.out.println("The function was expecting the following arguments: <username> <cmsname> <password> <authtype> <groupid>");
-			System.out.println("Note: If executed from within BO via a Job Server then only <groupid> is required");
+			System.out.println("The function was expecting the following arguments: <username> <cmsname> <password> <authtype> <run mode> <groupid>");
+			System.out.println("Note: If executed from within BO via a Job Server then only <run mode> and <groupid> is required");
 			System.exit(1);
 		}
 
@@ -80,23 +95,40 @@ public class DeleteOrphanedGroups implements IProgramBase{
 
 	public void run(IEnterpriseSession boEnterpriseSession, IInfoStore boInfoStore, java.lang.String[] args) {
 		
-		//First, parse arguments
-		String groupID = null;
+		//First, decipher which run mode has been specified - File or Command Line
+		String runMode = args[args.length -2];
 		
-		//Retrieve arguments if run from Command Line
-		if (args.length == 5)
+		// Check if Command-Line
+		if (runMode.equalsIgnoreCase("C"))
 		{
-			groupID = args[4];	
+			// Retrieve Group ID from arguments
+			String groupID = args[args.length -1];
+			// Delete Group
+			DeleteGroup(boInfoStore, groupID);
 		}
+		else // Otherwise, we are in File mode
+		{
+			// Retrieve the requested filename
+			String txtFile = args[args.length -1];
 			
-		//Retrieve arguments if run from Job Server
-		else if (args.length == 1)
-		{
-			groupID = args[0];	
+			// Declare a list of strings to hold the file contents
+			List<String> groupsToDelete = null;
+			
+			// Read the file and store it in our list
+			groupsToDelete = readTXTFile(txtFile);
+			
+			// Check that the file was not empty
+			if (!groupsToDelete.isEmpty())
+			{
+				System.out.println("Successfully read the contents of " + txtFile);
+				// Iterate down each group id
+				for (String groupId : groupsToDelete)
+					// Delete the group
+					DeleteGroup(boInfoStore, groupId);
+			}
+			else
+				System.out.println(txtFile + " was empty!");
 		}
-		
-		//Delete the group
-		DeleteGroup(boInfoStore, groupID);
 	}
 	
 	@SuppressWarnings("rawtypes")
@@ -139,5 +171,20 @@ public class DeleteOrphanedGroups implements IProgramBase{
 			System.out.println(e.getMessage());
 			System.exit(1);
 		}
+	}
+	
+	// Routine to read the contents of the specified filepath
+	private static List<String> readTXTFile(String filepath){
+		
+		//Declare a list object to hold the file contents
+		List<String> content = null;
+		try {
+			// Read the file
+			content = Files.readAllLines(Paths.get(filepath));
+ 		} catch(IOException e) {
+			System.out.print("The file " + filepath + " was not found!");
+			System.exit(1);
+		}
+		return content;
 	}
 }
