@@ -1,0 +1,20 @@
+comset.boe4utilities.LoadSAMLUsersAndGroupsFromCSV
+Description: Utility to bulk load the list of MUFG non-MFIL domain users from a text file
+Program Parameters:
+  Arguments: "<file to import>" "separator" e.g. "C:\Temp\aprtest.csv" ","
+
+  Class to run: comset.boe4utilities.LoadSAMLUsersAndGroupsFromCSV
+
+---
+comset.boe4utilities.DeleteOrphanedGroups
+Description: Allows the ability to delete a user group from the command line (i.e. a Windows AD group etc that can't be deleted from the CMC). Can either be run with a single group specified on the command line, or in batch-mode by specifying a text file containing the relevant group ids
+Program Parameters:
+  Arguments when running in single-group mode: c <id of group to delete> e.g. c 26738
+  Arguments when running in batch mode: f <filename> e.g. f "C:\Temp\groupstodelete.txt"
+  Class to run: comset.boe4utilities.DeleteOrphanedGroups
+
+---
+comset.boe4utilities.ListEnterpriseUsersWithNoLDAPAlias
+Description: Provides a list of Enterprise aliases that have no corresponding LDAP alias. The list is output using the stdout stream
+  Program Parameters: None required
+  Class to run: comset.boe4utilities.ListEnterpriseUsersWithNoLDAPAlias
