@@ -477,6 +477,7 @@ public class LoadSAMLUsersAndGroupsFromCSV implements IProgramBase{
 				// Add subgroup to parent group
 				parentgroup.getSubGroups().add(subgroup.getID());
 				boInfoStore.commit(parentgroupCollection);
+
 				
 				System.out.println("Added group "+subGroupName+" to group "+parentGroupName);
 			}
@@ -555,7 +556,9 @@ public class LoadSAMLUsersAndGroupsFromCSV implements IProgramBase{
 						//Add group to the matched group's parent
 						addSubgroupToParentGroup(boInfoStore, samlGroupPrefix+groupName, parentGroup.getTitle());
 					}
-					
+					// We have found a matched LDAP group, so remove this group from the SAML Unmatched Groups (in case it was a previously ummatched group)
+					System.out.println("Checking to see if "+samlGroupPrefix+groupName+" is a previous member of "+samlUnmatchedParentGroupName+" ,and removing it if it is...");
+					removeSubgroupFromParentGroup(boInfoStore, samlGroupPrefix+groupName, samlUnmatchedParentGroupName);
 				}	
 			}
 		}
@@ -732,6 +735,42 @@ public class LoadSAMLUsersAndGroupsFromCSV implements IProgramBase{
 			System.exit(1);
 		}
 
+	}
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	private static void removeSubgroupFromParentGroup(IInfoStore boInfoStore, String subGroupName, String parentGroupName) {
+		try {
+			
+			//Retrieve Sub-group Object
+			String queryString = "SELECT SI_ID, SI_NAME FROM CI_SYSTEMOBJECTS WHERE SI_KIND = 'UserGroup' AND SI_NAME = '" + subGroupName +"'";
+			IInfoObjects subgroupCollection = boInfoStore.query(queryString);
+			IUserGroup subgroup = (IUserGroup) subgroupCollection.get(0);	
+
+			//Retrieve Parent-group Object
+			queryString = "SELECT SI_ID, SI_NAME, SI_SUBGROUPS FROM CI_SYSTEMOBJECTS WHERE SI_KIND = 'UserGroup' AND SI_NAME = '" + parentGroupName +"'";
+			IInfoObjects parentgroupCollection = boInfoStore.query(queryString);
+			IUserGroup parentgroup = (IUserGroup) parentgroupCollection.get(0);	
+			
+			//Remove subgroup from parent group
+			Set subGroupsSet = parentgroup.getSubGroups();
+			
+			//See if subgroup is already a subgroup of the parent
+			if (subGroupsSet.contains(subgroup.getID())) {
+				System.out.println(subGroupName + " is a subgroup of " + parentGroupName + ", so removing it.");
+				
+				// Remove subgroup from parent group
+				parentgroup.getSubGroups().remove(subgroup.getID());
+				boInfoStore.commit(parentgroupCollection);
+				
+				System.out.println("Removed group "+subGroupName+" from group "+parentGroupName);
+
+			}
+			else
+				System.out.println("Group "+subGroupName+" not found as a sub-group of "+parentGroupName+".");
+		}
+		catch (Exception e) {
+			System.out.println(e.getMessage());
+			System.exit(1);
+		}
 	}
 
 }
