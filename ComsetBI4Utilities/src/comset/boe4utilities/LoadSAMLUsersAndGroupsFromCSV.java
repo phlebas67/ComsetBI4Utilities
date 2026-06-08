@@ -126,7 +126,7 @@ public class LoadSAMLUsersAndGroupsFromCSV implements IProgramBase{
 		final int userFullNameField = 3;
 		
 		//Define a constant Password for the user
-		final String userPasswordValue = "Passw0rd!";
+		final String userPasswordValue = "P@ssword4MUFGBusinessObjects@12345";
 		
 		//Build top-level group names
 		final String groupPrefix = "NON-MFIL_SAMLGROUP_";

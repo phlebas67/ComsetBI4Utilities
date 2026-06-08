@@ -1,8 +1,7 @@
 comset.boe4utilities.LoadSAMLUsersAndGroupsFromCSV
 Description: Utility to bulk load the list of MUFG non-MFIL domain users from a text file
 Program Parameters:
-  Arguments: "<file to import>" "separator" e.g. "C:\Temp\aprtest.csv" ","
-
+  Arguments: <file to import> separator e.g. C:\Temp\aprtest.csv ,
   Class to run: comset.boe4utilities.LoadSAMLUsersAndGroupsFromCSV
 
 ---
