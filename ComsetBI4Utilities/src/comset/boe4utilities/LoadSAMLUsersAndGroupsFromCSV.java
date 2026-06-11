@@ -365,8 +365,13 @@ public class LoadSAMLUsersAndGroupsFromCSV implements IProgramBase{
 				newUser.setFullName(userTitle);
 				newUser.setConnection(IUser.CONCURRENT);
 				newUser.setEmailAddress(userEmail);
-				newUser.setNewPassword(userPassword);
 				newUser.setDescription("Created automatically from Bulk Upload routine");
+				
+				//Set Password and relevant Options
+				newUser.setNewPassword(userPassword);
+				newUser.setPasswordToChangeAtNextLogon(false);
+				newUser.setPasswordExpiryAllowed(false);
+				newUser.setPasswordChangeAllowed(false);
 				
 				//Commit User
 				boInfoStore.commit(newUsers);
